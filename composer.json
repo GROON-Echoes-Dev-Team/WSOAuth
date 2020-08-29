@@ -1,5 +1,13 @@
 {
+  "repositories": [
+    {
+      "type": "path",
+      "url": "/bundled_php/discord-oauthclient-php/"
+
+    }
+  ],
   "require": {
+    "discord/oauthclient": "*",
     "mediawiki/oauthclient": "*",
     "league/oauth2-facebook": "^2.0"
   }
