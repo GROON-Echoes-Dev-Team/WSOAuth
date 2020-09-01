@@ -18,6 +18,7 @@ use AuthenticationProvider\FacebookAuth;
 use AuthenticationProvider\MediaWikiAuth;
 use Exception\InvalidAuthProviderClassException;
 use Exception\UnknownAuthProviderException;
+use RestCord\DiscordClient;
 
 /**
  * Class WSOAuth
@@ -226,21 +227,37 @@ class WSOAuth extends AuthProviderFramework
      */
     public static function onPluggableAuthPopulateGroups(User $user)
     {
-        $result = Hooks::run('WSOAuthBeforeAutoPopulateGroups', [&$user]);
+        // TODO Share with other auth func
+        $discord = new DiscordClient([
+            'token' => 'TODO'
+        ]); 
 
-        if ($result === false) {
-            return false;
+        $roles = $discord->guild->getGuildRoles(['guild.id' => 748488398104428558]);
+        $role_id_to_name_map = array();
+        foreach ($roles as $role) {
+            $role_id_to_name_map[$role->id] = $role->name;
+        }
+        $member = $discord->guild->getGuildMember(['guild.id' => 748488398104428558, 'user.id' => $user->getRealName()]);
+        $username = $member->user->username;
+        $result = array();
+        foreach ($member->roles as $user_role_id) {
+            $role_name = $role_id_to_name_map[$user_role_id];
+            array_push($result, $role_name);
         }
 
-        if (!isset($GLOBALS['wgOAuthAutoPopulateGroups'])) {
-            return false;
-        }
+        // if (!isset($GLOBALS['wgOAuthAutoPopulateGroups'])) {
+        //     return false;
+        // }
 
         // Subtract the groups the user already has from the list of groups to populate.
-        $populate_groups = array_diff((array)$GLOBALS['wgOAuthAutoPopulateGroups'], $user->getEffectiveGroups());
+        // $populate_groups = array_diff((array)$GLOBALS['wgOAuthAutoPopulateGroups'], $user->getEffectiveGroups());
+        foreach ($user->getGroups() as $current_group) {
+            $user->removeGroup($current_group);
+        }
 
-        foreach ($populate_groups as $populate_group) {
-            $user->addGroup($populate_group);
+        // TODO Map discord roles explicitily to wiki groups, investigate restricting access by group
+        foreach ($result as $new_group) {
+            $user->addGroup($new_group);
         }
 
         return true;

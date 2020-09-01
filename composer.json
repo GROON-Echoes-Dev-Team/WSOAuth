@@ -1,14 +1,11 @@
 {
-  "repositories": [
-    {
-      "type": "path",
-      "url": "/bundled_php/discord-oauthclient-php/"
-
-    }
-  ],
   "require": {
-    "discord/oauthclient": "*",
     "mediawiki/oauthclient": "*",
-    "league/oauth2-facebook": "^2.0"
+    "league/oauth2-facebook": "^2.0",
+		"php": "^7.2.9",
+		"ext-curl": "*",
+		"ext-json": "*",
+    "restcord/restcord": "0.4.0",
+		"psr/log": "^1.0"
   }
 }
