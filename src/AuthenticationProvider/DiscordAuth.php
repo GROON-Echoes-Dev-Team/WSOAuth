@@ -79,7 +79,7 @@ class DiscordAuth implements \AuthProvider
             $this->discordAdapter = $discordAdapter;
         }
 
-        $this->logger = LoggerFactory::getInstance('MyCoolLoggingChannel');
+        $this->logger = LoggerFactory::getInstance('DiscordAuth');
     }
 
     /**
