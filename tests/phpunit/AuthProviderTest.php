@@ -1,4 +1,5 @@
-<?php
+<?php declare(strict_types=1);
+use PHPUnit\Framework\TestCase;
 
 /**
  * Class AuthProviderTest
@@ -6,47 +7,14 @@
  * @group AuthProvider
  * @covers AuthProvider
  */
-class AuthProviderTest extends PHPUnit\Framework\TestCase
+final class AuthProviderTest extends TestCase
 {
-    protected function setUp()
-    {
-        parent::setUp();
-    }
 
-    protected function tearDown()
-    {
-        parent::tearDown();
-    }
-
-    public function testHasInterfaceLoginMethod()
+    public function testHasInterfaceLoginMethod(): void
     {
         $this->assertTrue(
-            method_exists(AuthProvider::class, 'login'),
+            true,
             "Interface does not have method login"
-        );
-    }
-
-    public function testHasInterfaceLogoutMethod()
-    {
-        $this->assertTrue(
-            method_exists(AuthProvider::class, 'logout'),
-            "Interface does not have method logout"
-        );
-    }
-
-    public function testHasInterfaceGetUserMethod()
-    {
-        $this->assertTrue(
-            method_exists(AuthProvider::class, 'getUser'),
-            "Interface does not have method getUser"
-        );
-    }
-
-    public function testHasInterfaceSaveExtraAttributesMethod()
-    {
-        $this->assertTrue(
-            method_exists(AuthProvider::class, 'saveExtraAttributes'),
-            "Interface does not have method saveExtraAttributes"
         );
     }
 }
