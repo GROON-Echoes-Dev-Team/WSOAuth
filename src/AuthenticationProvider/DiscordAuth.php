@@ -1,7 +1,6 @@
 <?php
 namespace AuthenticationProvider;
 
-use MediaWiki\Logger\LoggerFactory;
 use \MediaWiki\Auth\AuthManager;
 use RestCord\DiscordClient;
 
@@ -21,11 +20,6 @@ const ERROR_SESSION_KEY = 'PluggableAuthLoginError';
 class DiscordAuth implements \AuthProvider
 {
 
-    public function __construct()
-    {
-        $this->logger = LoggerFactory::getInstance( 'DiscordAuth' );
-    }
-
     /**
      * Log in the user through the external OAuth provider.
      *
@@ -37,21 +31,9 @@ class DiscordAuth implements \AuthProvider
      */
     public function login(&$key, &$secret, &$auth_url)
     {
-        $this->logger->debug("LOGIN");
-        $auth_url = 'https://discord.com/api/oauth2/authorize?client_id=748478733077315645&redirect_uri=https%3A%2F%2Flocalhost%2Fwiki%2Findex.php%3Ftitle%3DSpecial%3APluggableAuthLogin&response_type=code&scope=email%20identify';
-        $key = '748478733077315645';
-        $secret = 'TODO';
-        // try {
-        //     list($auth_url, $token) = $this->client->initiate();
-
-        //     $key = $token->key;
-        //     $secret = $token->secret;
-
-        //     return true;
-        // } catch (\Discord\OAuthClient\Exception $e) {
-        //     wfDebugLog("WSOAuth", $e->getMessage());
-        //     return false;
-        // }
+        $auth_url = $GLOBALS['wgOAuthDiscordOAuth2Url'];
+        $key = $GLOBALS['wgOAuthDiscordClientId'];
+        $secret = $GLOBALS['wgOAuthDiscordClientSecret'];
         return true;
     }
 
@@ -84,7 +66,6 @@ class DiscordAuth implements \AuthProvider
         );
         if (!isset($returnToQuery)) {
             // TODO Better error messages
-            $this->logger->debug("MISSING CODE $debug");
             return false;
         }
         // TODO Parse url instead of exploding
@@ -92,13 +73,11 @@ class DiscordAuth implements \AuthProvider
 
         if(count($exploded_query) != 3){
             $to_str = json_encode($exploded_query);
-            $this->logger->debug("Explode unexpected $to_str");
             return false;
         }
 
         $code = trim($exploded_query[2]);
         if(!$code){
-            $this->logger->debug("No code $code");
             return false;
         }
 
@@ -136,19 +115,15 @@ class DiscordAuth implements \AuthProvider
         //execute post
         $result = curl_exec($ch);
         if(!$result){
-            $this->logger->debug("Empty response when attempting to get user access token");
             return false;
         }
         $result_json = json_decode($result);
         if(array_key_exists('error', $result_json)){
-            $this->logger->debug("Error from discord when attempting to get use access token: $result");
             return false;
         }
-        $this->logger->debug("Got $result");
-        // TODO Persist refresh token? 
+        // TODO Persist refresh token?
         $token = $result_json->access_token;
         // TODO ensure token isn't logged and is secure
-        $this->logger->debug("Got token $token");
 
 
         $discord_user = new DiscordClient([
@@ -159,7 +134,6 @@ class DiscordAuth implements \AuthProvider
         $user = $discord_user->user->getCurrentUser();
 
         $user_str = json_encode($user);
-        $this->logger->debug("Got user $user_str");
 
         // TODO Function
         // TODO token from secret file
@@ -179,14 +153,12 @@ class DiscordAuth implements \AuthProvider
         $username = $member->user->username;
         foreach ($member->roles as $user_role_id) {
             $role_name = $role_id_to_name_map[$user_role_id];
-            $this->logger->debug("$username has $role_name\n");
         }
 
 
         // TODO Better way for username?
         $unique_username = $user->username  . $user->discriminator;
 
-        $this->logger->debug($unique_username);
 
         // TODO Persist user id, real discord name, etc in a better manner
         // TODO How to logout?

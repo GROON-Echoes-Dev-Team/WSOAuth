@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
-use PHPUnit\Framework\TestCase;
+use Mockery\Adapter\Phpunit\MockeryTestCase;
+use \AuthenticationProvider\DiscordAuth;
 
 /**
  * Class AuthProviderTest
@@ -7,14 +8,28 @@ use PHPUnit\Framework\TestCase;
  * @group AuthProvider
  * @covers AuthProvider
  */
-final class DiscordAuthTest extends TestCase
+
+final class DiscordAuthTest extends MockeryTestCase
 {
 
-    public function testHasInterfaceLoginMethod(): void
+    public function testCallingLoginPopulatesReturnParametersWithGloballySetConfig(): void
     {
-        $this->assertTrue(
-            true,
-            "Interface does not have method login"
-        );
+        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
+        $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
+        $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
+
+        $discordAuth = new DiscordAuth;
+
+        $key = '';
+        $secret = '';
+        $auth_url = '';
+
+        $discordAuth->login($key, $secret, $auth_url);
+
+        $this->assertEquals($key, "TestClientId");
+
+        unset($GLOBALS['wgOAuthDiscordOAuth2Url']);
+        unset($GLOBALS['wgOAuthDiscordClientId']);
+        unset($GLOBALS['wgOAuthDiscordClientSecret']);
     }
 }
