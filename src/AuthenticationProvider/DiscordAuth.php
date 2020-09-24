@@ -1,7 +1,10 @@
 <?php
+
 namespace AuthenticationProvider;
 
-use \MediaWiki\Auth\AuthManager;
+use MediaWiki\Auth\AuthManager;
+use MediaWiki\Logger\LoggerFactory;
+use HTTP_Request2;
 use RestCord\DiscordClient;
 
 const RETURNTOURL_SESSION_KEY = 'PluggableAuthLoginReturnToUrl';
@@ -17,8 +20,43 @@ const ERROR_SESSION_KEY = 'PluggableAuthLoginError';
  * Class DiscordAuth 
  * @package AuthenticationProvider
  */
+interface DiscordAdapter {
+
+    public function getUser($userToken);
+
+}
+
+class RealDiscordAdapter implements DiscordAdapter {
+    public function getUser($userToken){
+        $discord_user = new DiscordClient([
+            'token' => $userToken,
+            'tokenType' => 'OAuth'
+        ]);
+
+        return $discord_user->user->getCurrentUser([]);
+    }
+
+}
+
 class DiscordAuth implements \AuthProvider
 {
+
+    function __construct($httpAdapter = null, $discordAdapter = null)
+    {
+        if(!$httpAdapter){
+            $this->httpAdapter = new \HTTP_Request2_Adapter_Socket();
+        } else {
+            $this->httpAdapter = $httpAdapter;
+        }
+
+        if(!$discordAdapter){
+            $this->discordAdapter = new RealDiscordAdapter();
+        } else {
+            $this->discordAdapter = $discordAdapter;
+        }
+
+        $this->logger = LoggerFactory::getInstance('MyCoolLoggingChannel');
+    }
 
     /**
      * Log in the user through the external OAuth provider.
@@ -64,92 +102,51 @@ class DiscordAuth implements \AuthProvider
         $returnToQuery = $authManager->getAuthenticationSessionData(
             RETURNTOQUERY_SESSION_KEY
         );
+        $this->logger->debug("returnToQuery = " . $returnToQuery);
         if (!isset($returnToQuery)) {
             // TODO Better error messages
+            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: returnToQuery Not Set. ";
             return false;
         }
         // TODO Parse url instead of exploding
-        $exploded_query = explode("=",$returnToQuery);
+        $exploded_query = explode("=", $returnToQuery);
 
-        if(count($exploded_query) != 3){
+        if (count($exploded_query) != 3) {
             $to_str = json_encode($exploded_query);
+            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. " . $to_str;
             return false;
         }
+        
 
         $code = trim($exploded_query[2]);
-        if(!$code){
+        if (!$code) {
             return false;
         }
 
-        // TODO Import these via secrets file
-        $url = 'https://discord.com/api/oauth2/token';
-        $key = '748478733077315645';
-        $secret = 'TODO';
-
-        //The data you want to send via POST
-        // TODO Do we want more data
-        $fields = [
-            'client_id'      => $key,
-            'client_secret' => $secret,
-            'grant_type'         => 'authorization_code',
-            'code' => $code,
-            'redirect_uri' => 'https://localhost/wiki/index.php?title=Special:PluggableAuthLogin',
-            'scope' => 'email identify'
-        ];
-
-        // TODO Pull to function
-        //url-ify the data for the POST
-        $fields_string = http_build_query($fields);
-
-        //open connection
-        $ch = curl_init();
-
-        //set the url, number of POST vars, POST data
-        curl_setopt($ch,CURLOPT_URL, $url);
-        curl_setopt($ch,CURLOPT_POST, true);
-        curl_setopt($ch,CURLOPT_POSTFIELDS, $fields_string);
-
-        //So that curl_exec returns the contents of the cURL; rather than echoing it
-        curl_setopt($ch,CURLOPT_RETURNTRANSFER, true); 
-
-        //execute post
-        $result = curl_exec($ch);
-        if(!$result){
-            return false;
-        }
-        $result_json = json_decode($result);
-        if(array_key_exists('error', $result_json)){
-            return false;
-        }
-        // TODO Persist refresh token?
-        $token = $result_json->access_token;
         // TODO ensure token isn't logged and is secure
+        $token = $this->requestDiscordUserToken($key, $secret, $code, $errorMessage);
+        if (!$token) {
+            return false;
+        }
 
 
-        $discord_user = new DiscordClient([
-            'token' => $token,
-            'tokenType' => 'OAuth'
-        ]); 
-
-        $user = $discord_user->user->getCurrentUser();
+        $user = $this->discordAdapter->getUser($token);
 
         $user_str = json_encode($user);
 
-        // TODO Function
-        // TODO token from secret file
-        $discord = new DiscordClient([
-            'token' => 'TODO'
-        ]); 
+        $discord_bot_client = new DiscordClient([
+            'token' => $GLOBALS['wgOAuthDiscordBotToken']
+        ]);
 
         // TODO Check goon role is assigned
         // TODO Extract guild id to config, setup new bot in real server with Wiki name
 
-        $roles = $discord->guild->getGuildRoles(['guild.id' => 748488398104428558]);
+        $roles = $discord_bot_client->guild->getGuildRoles(['guild.id' => $GLOBALS['wgOAuthDiscordGuildId']]);
         $role_id_to_name_map = array();
         foreach ($roles as $role) {
             $role_id_to_name_map[$role->id] = $role->name;
         }
-        $member = $discord->guild->getGuildMember(['guild.id' => 748488398104428558, 'user.id' => $user->id]);
+        $member = $discord_bot_client->guild->getGuildMember(['guild.id' =>$GLOBALS['wgOAuthDiscordGuildId']  , 'user.id' => $user->id]);
         $username = $member->user->username;
         foreach ($member->roles as $user_role_id) {
             $role_name = $role_id_to_name_map[$user_role_id];
@@ -160,7 +157,7 @@ class DiscordAuth implements \AuthProvider
         $unique_username = $user->username  . $user->discriminator;
 
 
-        // TODO Persist user id, real discord name, etc in a better manner
+        // TODO Persist user id, real discord_bot_client$discord_bot_client name, etc in a better manner
         // TODO How to logout?
         // TODO How to refresh roles by indivudual or admin or on timer? 
         // TODO What happens if role changes yet session exists?
@@ -190,4 +187,41 @@ class DiscordAuth implements \AuthProvider
     {
     }
 
+    private function requestDiscordUserToken($key, $secret, $code, &$errorMessage)
+    {
+        // TODO Pull to function
+        //url-ify the data for the POST
+        $request = new HTTP_Request2(
+            'https://discord.com/api/oauth2/token',
+            HTTP_Request2::METHOD_POST,
+            array('adapter' => $this->httpAdapter)
+        );
+        $request->addPostParameter([
+            'client_id'     => $key,
+            'client_secret' => $secret,
+            'grant_type'    => 'authorization_code',
+            'code'          => $code,
+            'redirect_uri'  => 'https://localhost/wiki/index.php?title=Special:PluggableAuthLogin',
+            'scope'         => 'email identify'
+        ]);
+
+        try {
+            $response = $request->send();
+            if (200 == $response->getStatus()) {
+                $body = $response->getBody();
+                $result_json = json_decode($body);
+                if (array_key_exists('error', $result_json)) {
+                    return false;
+                }
+                return $result_json->access_token;
+            } else {
+                $errorMessage = 'Error asking Discord Server for user information. The response from Discord was: ' . $response->getStatus() . ' ' .
+                    $response->getReasonPhrase();
+                return false;
+            }
+        } catch (\Exception $e) {
+            $errorMessage = 'Fatal Error asking Discord Server for user information: ' . $e->getMessage();
+            return false;
+        }
+    }
 }

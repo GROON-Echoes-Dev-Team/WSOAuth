@@ -1,6 +1,10 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
 use Mockery\Adapter\Phpunit\MockeryTestCase;
 use \AuthenticationProvider\DiscordAuth;
+use MediaWiki\Auth\AuthManager;
 
 /**
  * Class AuthProviderTest
@@ -18,7 +22,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
         $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
 
-        $discordAuth = new DiscordAuth;
+        $discordAuth = new DiscordAuth();
 
         $key = '';
         $secret = '';
@@ -31,5 +35,24 @@ final class DiscordAuthTest extends MockeryTestCase
         unset($GLOBALS['wgOAuthDiscordOAuth2Url']);
         unset($GLOBALS['wgOAuthDiscordClientId']);
         unset($GLOBALS['wgOAuthDiscordClientSecret']);
+    }
+
+    public function testGivenKeyAndSecretGetUserLooksUpUserRolesAndAuthsFromDiscord()
+    {
+        $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
+        $discordAuth = new DiscordAuth($mockHttpAdapter);
+        $errorMessage = false;
+        $stubAuthManager = AuthManager::singleton();
+        $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'hello=code=TestCode');
+        $mockHttpAdapter->addResponse(
+            "HTTP/1.1 200 OK\r\n" .
+                "Connection: close\r\n" .
+                "\r\n" .
+                '{"access_token":"FakeAccessToken"}',
+            'https://discord.com/api/oauth2/token'
+        );
+        $result = $discordAuth->getUser("TestKey", "TestSecret", $errorMessage);
+
+        $this->assertTrue($result, "getUser failed with message " . $errorMessage);
     }
 }
