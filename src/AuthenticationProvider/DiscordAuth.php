@@ -128,7 +128,6 @@ class DiscordAuth implements \AuthProvider
             return false;
         }
 
-        // TODO ensure token isn't logged and is secure
         $token = $this->requestDiscordUserToken($key, $secret, $code, $errorMessage);
         if (!$token) {
             return false;
@@ -137,22 +136,8 @@ class DiscordAuth implements \AuthProvider
         $user = $this->discordAdapter->getUser($token);
 
         if($this->userHasValidWikiRoleOnDiscordServer($user)) {
-            // TODO Better way for username?
             $unique_username = $user->username  . $user->discriminator;
 
-
-            // TODO Persist user id, real discord_bot_client$discord_bot_client name, etc in a better manner
-            // TODO How to logout?
-            // TODO How to refresh roles by indivudual or admin or on timer? 
-            // TODO What happens if role changes yet session exists?
-            // TODO Add setup into dockerfile
-            // TODO Figure out backup
-            // TODO Figure out how to work mediawiki/oauth redirect etc with apache proxy on vps
-            // TODO Go over other security options for mediawiki
-            // TODO Import old wiki + main page
-            // TODO Release
-            // TODO Setup new scafolding
-            // TODO Semantic plugin + other fun extensions
             return [
                 'name' => $unique_username, // required
                 'realname' => $user->id, // optional
