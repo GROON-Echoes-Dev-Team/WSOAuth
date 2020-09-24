@@ -1,6 +1,7 @@
 <?php
 
 namespace AuthenticationProvider;
+use RestCord\DiscordClient;
 
 interface DiscordAdapter {
 

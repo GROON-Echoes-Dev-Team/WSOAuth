@@ -5,7 +5,6 @@ namespace AuthenticationProvider;
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\Logger\LoggerFactory;
 use HTTP_Request2;
-use RestCord\DiscordClient;
 
 const RETURNTOURL_SESSION_KEY = 'PluggableAuthLoginReturnToUrl';
 const RETURNTOPAGE_SESSION_KEY = 'PluggableAuthLoginReturnToPage';
@@ -48,21 +47,10 @@ class DiscordAuth implements \AuthProvider
      */
     public function login(&$key, &$secret, &$auth_url)
     {
-        $auth_url = $GLOBALS['wgOAuthDiscordOAuth2Url'];
-        $key = $GLOBALS['wgOAuthDiscordClientId'];
-        $secret = $GLOBALS['wgOAuthDiscordClientSecret'];
+        $secret =  bin2hex(random_bytes(32)); 
+        $auth_url = $GLOBALS['wgOAuthDiscordOAuth2Url'] . "&state=" . $secret;
+        $key = false; 
         return true;
-    }
-
-    /**
-     * Log out the user and destroy the session.
-     *
-     * @param \User $user The currently logged in user (i.e. the user that will be logged out).
-     * @return void
-     * @internal
-     */
-    public function logout(\User &$user)
-    {
     }
 
 
@@ -77,13 +65,14 @@ class DiscordAuth implements \AuthProvider
      */
     public function getUser($key, $secret, &$errorMessage)
     {
-        // TODO Use a salt, how to generate salt? Check other impl
-        $code = $this->extractAccessCodeFromSession($errorMessage);
+        $code = $this->extractAccessCodeFromSession($secret, $errorMessage);
         if(!$code){
             return false;
         }
 
-        $token = $this->requestDiscordUserToken($key, $secret, $code, $errorMessage);
+        $clientId = $GLOBALS['wgOAuthDiscordClientId'];
+        $clientSecret = $GLOBALS['wgOAuthDiscordClientSecret'];
+        $token = $this->requestDiscordUserToken($clientId, $clientSecret, $code, $errorMessage);
         if (!$token) {
             return false;
         }
@@ -94,9 +83,9 @@ class DiscordAuth implements \AuthProvider
             $unique_username = $user->username  . $user->discriminator;
 
             return [
-                'name' => $unique_username, // required
-                'realname' => $user->id, // optional
-                'email' => $user->email // optional
+                'name' => $unique_username, 
+                'realname' => $user->id, 
+                'email' => $user->email 
             ];
         } else {
             $errorMessage = "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again." ;
@@ -104,28 +93,31 @@ class DiscordAuth implements \AuthProvider
         }
     }
 
-    private function extractAccessCodeFromSession(&$errorMessage){
+    private function extractAccessCodeFromSession($secret, &$errorMessage){
         $authManager = AuthManager::singleton();
-        $returnToQuery = $authManager->getAuthenticationSessionData(
+        $returnToQuery = htmlspecialchars($authManager->getAuthenticationSessionData(
             RETURNTOQUERY_SESSION_KEY
-        );
-        $this->logger->debug("returnToQuery = " . $returnToQuery);
+        ));
         if (!isset($returnToQuery)) {
             $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: returnToQuery Not Set. ";
             return false;
         }
-        // TODO Parse url instead of exploding
-        $exploded_query = explode("=", $returnToQuery);
+        parse_str($returnToQuery, $decoded_url);
 
-        if (count($exploded_query) != 3) {
-            $to_str = json_encode($exploded_query);
-            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. " . $to_str;
+        if (!array_key_exists('code', $decoded_url) || !array_key_exists('state', $decoded_url)) {
+            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. " . $returnToQuery;
             return false;
         }
         
 
-        $code = trim($exploded_query[2]);
-        return $code;
+        $code = $decoded_url['code'];
+        $state = $decoded_url['state'];
+        if(hash_equals($state, $secret)) {
+            return $code;
+        } else {
+            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error decoding returnToQuery. " . $returnToQuery;
+            return false;
+        }
     }
 
     private function userHasValidWikiRoleOnDiscordServer($user){
@@ -142,21 +134,8 @@ class DiscordAuth implements \AuthProvider
         return false;
     }
 
-    /**
-     * Gets called whenever a user is successfully authenticated, so extra attributes about the user can be saved.
-     *
-     * @param int $id The ID of the User.
-     * @return void
-     * @internal
-     */
-    public function saveExtraAttributes($id)
-    {
-    }
-
     private function requestDiscordUserToken($key, $secret, $code, &$errorMessage)
     {
-        // TODO Pull to function
-        //url-ify the data for the POST
         $request = new HTTP_Request2(
             'https://discord.com/api/oauth2/token',
             HTTP_Request2::METHOD_POST,
@@ -177,6 +156,7 @@ class DiscordAuth implements \AuthProvider
                 $body = $response->getBody();
                 $result_json = json_decode($body);
                 if (array_key_exists('error', $result_json)) {
+                    $errorMessage = 'Fatal Error asking Discord Server for user information, error in repsonse: ' . htmlspecialchars($body);
                     return false;
                 }
                 return $result_json->access_token;
@@ -189,5 +169,27 @@ class DiscordAuth implements \AuthProvider
             $errorMessage = 'Fatal Error asking Discord Server for user information: ' . $e->getMessage();
             return false;
         }
+    }
+
+    /**
+     * Gets called whenever a user is successfully authenticated, so extra attributes about the user can be saved.
+     *
+     * @param int $id The ID of the User.
+     * @return void
+     * @internal
+     */
+    public function saveExtraAttributes($id)
+    {
+    }
+
+    /**
+     * Log out the user and destroy the session.
+     *
+     * @param \User $user The currently logged in user (i.e. the user that will be logged out).
+     * @return void
+     * @internal
+     */
+    public function logout(\User &$user)
+    {
     }
 }
