@@ -110,6 +110,7 @@ class DiscordAuth implements \AuthProvider
     {
     }
 
+
     /**
      * Get user info from session. Returns false when the request failed or the user is not authorised.
      *
@@ -122,28 +123,8 @@ class DiscordAuth implements \AuthProvider
     public function getUser($key, $secret, &$errorMessage)
     {
         // TODO Use a salt, how to generate salt? Check other impl
-        $authManager = AuthManager::singleton();
-        $returnToQuery = $authManager->getAuthenticationSessionData(
-            RETURNTOQUERY_SESSION_KEY
-        );
-        $this->logger->debug("returnToQuery = " . $returnToQuery);
-        if (!isset($returnToQuery)) {
-            // TODO Better error messages
-            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: returnToQuery Not Set. ";
-            return false;
-        }
-        // TODO Parse url instead of exploding
-        $exploded_query = explode("=", $returnToQuery);
-
-        if (count($exploded_query) != 3) {
-            $to_str = json_encode($exploded_query);
-            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. " . $to_str;
-            return false;
-        }
-        
-
-        $code = trim($exploded_query[2]);
-        if (!$code) {
+        $code = $this->extractAccessCodeFromSession($errorMessage);
+        if(!$code){
             return false;
         }
 
@@ -181,6 +162,30 @@ class DiscordAuth implements \AuthProvider
             $errorMessage = "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again." ;
             return false;
         }
+    }
+
+    private function extractAccessCodeFromSession(&$errorMessage){
+        $authManager = AuthManager::singleton();
+        $returnToQuery = $authManager->getAuthenticationSessionData(
+            RETURNTOQUERY_SESSION_KEY
+        );
+        $this->logger->debug("returnToQuery = " . $returnToQuery);
+        if (!isset($returnToQuery)) {
+            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: returnToQuery Not Set. ";
+            return false;
+        }
+        // TODO Parse url instead of exploding
+        $exploded_query = explode("=", $returnToQuery);
+
+        if (count($exploded_query) != 3) {
+            $to_str = json_encode($exploded_query);
+            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. " . $to_str;
+            return false;
+        }
+        
+
+        $code = trim($exploded_query[2]);
+        return $code;
     }
 
     private function userHasValidWikiRoleOnDiscordServer($user){
