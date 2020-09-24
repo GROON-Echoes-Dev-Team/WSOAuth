@@ -20,7 +20,13 @@ use RestCord\Model\User;
 
  final class StubDiscordAdapter implements \AuthenticationProvider\DiscordAdapter {
 
+    public $userRoles = array();
+    public $expectedAccessToken = '';
+
     public function getUser($userToken){
+        if($userToken != $this->expectedAccessToken){
+            throw Exception("Invalid Access Token provided to discord.");
+        }
         $user = new StubUser();
         $user->discriminator = 1234;
         $user->id = 1;
@@ -29,8 +35,8 @@ use RestCord\Model\User;
         return $user;
     }
 
-    public function userHasOneOrMoreValidRolesInGuild($user, $botToken, $guildId, $validRoles){
-        return true;
+    public function getServerRolesForUser($user, $botToken, $guildId){
+        return $this->userRoles;
     }
 
  }
@@ -67,8 +73,10 @@ final class DiscordAuthTest extends MockeryTestCase
 
         $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
         $stubDiscordAdapter = new StubDiscordAdapter();
-        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter);
-        $errorMessage = false;
+        $stubDiscordAdapter->userRoles = array("AllowedRoleOne");
+        $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
+        
+
         $stubAuthManager = AuthManager::singleton();
         $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'hello=code=TestCode');
         $mockHttpAdapter->addResponse(
@@ -78,9 +86,77 @@ final class DiscordAuthTest extends MockeryTestCase
                 '{"access_token":"FakeAccessToken"}',
             'https://discord.com/api/oauth2/token'
         );
-        $result = $discordAuth->getUser("TestKey", "TestSecret", $errorMessage);
 
+        $errorMessage = false;
+        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter);
+        $result = $discordAuth->getUser("TestKey", "TestSecret", $errorMessage);
         $this->assertFalse($errorMessage, "getUser failed with message " . $errorMessage);
+
+        unset($GLOBALS['wgOAuthDiscordBotToken']);
+        unset($GLOBALS['wgOAuthDiscordGuildId']);
+        unset($GLOBALS['wgOAuthDiscordAllowedRoles']);
+    }
+
+    public function testFailsWithErrorIfUserDoesNotHaveRole()
+    {
+        $GLOBALS['wgOAuthDiscordBotToken'] = "TestBotToken";
+        $GLOBALS['wgOAuthDiscordGuildId'] = 10023;
+        $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("AllowedRoleOne");
+
+        $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
+        $stubDiscordAdapter = new StubDiscordAdapter();
+        // No Roles
+        $stubDiscordAdapter->userRoles = array();
+        $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
+        
+
+        $stubAuthManager = AuthManager::singleton();
+        $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'hello=code=TestCode');
+        $mockHttpAdapter->addResponse(
+            "HTTP/1.1 200 OK\r\n" .
+                "Connection: close\r\n" .
+                "\r\n" .
+                '{"access_token":"FakeAccessToken"}',
+            'https://discord.com/api/oauth2/token'
+        );
+
+        $errorMessage = false;
+        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter);
+        $result = $discordAuth->getUser("TestKey", "TestSecret", $errorMessage);
+        $this->assertEquals($errorMessage, "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again.");
+
+        unset($GLOBALS['wgOAuthDiscordBotToken']);
+        unset($GLOBALS['wgOAuthDiscordGuildId']);
+        unset($GLOBALS['wgOAuthDiscordAllowedRoles']);
+    }
+
+    public function testGetUserFailsWithErrorIfUserHasRolesButNoneAreValidToSeeTheWiki()
+    {
+        $GLOBALS['wgOAuthDiscordBotToken'] = "TestBotToken";
+        $GLOBALS['wgOAuthDiscordGuildId'] = 10023;
+        $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("Goon");
+
+        $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
+        $stubDiscordAdapter = new StubDiscordAdapter();
+        // Invalid Wiki Roles
+        $stubDiscordAdapter->userRoles = array("Guest", "Spy");
+        $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
+        
+
+        $stubAuthManager = AuthManager::singleton();
+        $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'hello=code=TestCode');
+        $mockHttpAdapter->addResponse(
+            "HTTP/1.1 200 OK\r\n" .
+                "Connection: close\r\n" .
+                "\r\n" .
+                '{"access_token":"FakeAccessToken"}',
+            'https://discord.com/api/oauth2/token'
+        );
+
+        $errorMessage = false;
+        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter);
+        $result = $discordAuth->getUser("TestKey", "TestSecret", $errorMessage);
+        $this->assertEquals($errorMessage, "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again.");
 
         unset($GLOBALS['wgOAuthDiscordBotToken']);
         unset($GLOBALS['wgOAuthDiscordGuildId']);

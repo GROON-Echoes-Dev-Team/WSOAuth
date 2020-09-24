@@ -23,7 +23,7 @@ const ERROR_SESSION_KEY = 'PluggableAuthLoginError';
 interface DiscordAdapter {
 
     public function getUser($userToken);
-    public function userHasOneOrMoreValidRolesInGuild($user, $botToken, $guildId, $validRoles);
+    public function getServerRolesForUser($user, $botToken, $guildId);
 
 }
 
@@ -37,25 +37,27 @@ class RealDiscordAdapter implements DiscordAdapter {
         return $discord_user->user->getCurrentUser([]);
     }
 
-    public function userHasOneOrMoreValidRolesInGuild($user, $botToken, $guildId, $validRoles){
+    public function getServerRolesForUser($user, $botToken, $guildId){
         $discord_bot_client = new DiscordClient([
-            'token' => $GLOBALS['wgOAuthDiscordBotToken']
+            'token' => $botToken
         ]);
 
-        $roles = $discord_bot_client->guild->getGuildRoles(['guild.id' => $GLOBALS['wgOAuthDiscordGuildId']]);
+        $roles = $discord_bot_client->guild->getGuildRoles(['guild.id' => $guildId]);
+
         $role_id_to_name_map = array();
         foreach ($roles as $role) {
             $role_id_to_name_map[$role->id] = $role->name;
         }
-        $member = $discord_bot_client->guild->getGuildMember(['guild.id' =>$GLOBALS['wgOAuthDiscordGuildId']  , 'user.id' => $user->id]);
-        $username = $member->user->username;
+
+        $member = $discord_bot_client->guild->getGuildMember(['guild.id' => $guildId  , 'user.id' => $user->id]);
+
+
+        $role_names = array();
         foreach ($member->roles as $user_role_id) {
             $role_name = $role_id_to_name_map[$user_role_id];
-            if(\in_array($role_name, $GLOBALS['wgOAuthDiscordAllowedRoles'])){
-                return true;
-            }
+            \array_push($role_names, $role_name);
         }
-        return false;
+        return $role_names;
     }
 
 }
@@ -151,15 +153,9 @@ class DiscordAuth implements \AuthProvider
             return false;
         }
 
-
         $user = $this->discordAdapter->getUser($token);
 
-        $allowedUser = $this->discordAdapter->userHasOneOrMoreValidRolesInGuild(
-            $user,
-            $GLOBALS['wgOAuthDiscordBotToken'], 
-            $GLOBALS['wgOAuthDiscordGuildId'], 
-            $GLOBALS['wgOAuthDiscordAllowedRoles']);
-        if($allowedUser) {
+        if($this->userHasValidWikiRoleOnDiscordServer($user)) {
             // TODO Better way for username?
             $unique_username = $user->username  . $user->discriminator;
 
@@ -185,6 +181,20 @@ class DiscordAuth implements \AuthProvider
             $errorMessage = "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again." ;
             return false;
         }
+    }
+
+    private function userHasValidWikiRoleOnDiscordServer($user){
+        $userRoles = $this->discordAdapter->getServerRolesForUser(
+            $user,
+            $GLOBALS['wgOAuthDiscordBotToken'], 
+            $GLOBALS['wgOAuthDiscordGuildId']);
+        
+        foreach ($userRoles as $userRole){
+            if(\in_array($userRole, $GLOBALS['wgOAuthDiscordAllowedRoles'])){
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
