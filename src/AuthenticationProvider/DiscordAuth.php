@@ -23,6 +23,7 @@ const ERROR_SESSION_KEY = 'PluggableAuthLoginError';
 interface DiscordAdapter {
 
     public function getUser($userToken);
+    public function userHasOneOrMoreValidRolesInGuild($user, $botToken, $guildId, $validRoles);
 
 }
 
@@ -34,6 +35,27 @@ class RealDiscordAdapter implements DiscordAdapter {
         ]);
 
         return $discord_user->user->getCurrentUser([]);
+    }
+
+    public function userHasOneOrMoreValidRolesInGuild($user, $botToken, $guildId, $validRoles){
+        $discord_bot_client = new DiscordClient([
+            'token' => $GLOBALS['wgOAuthDiscordBotToken']
+        ]);
+
+        $roles = $discord_bot_client->guild->getGuildRoles(['guild.id' => $GLOBALS['wgOAuthDiscordGuildId']]);
+        $role_id_to_name_map = array();
+        foreach ($roles as $role) {
+            $role_id_to_name_map[$role->id] = $role->name;
+        }
+        $member = $discord_bot_client->guild->getGuildMember(['guild.id' =>$GLOBALS['wgOAuthDiscordGuildId']  , 'user.id' => $user->id]);
+        $username = $member->user->username;
+        foreach ($member->roles as $user_role_id) {
+            $role_name = $role_id_to_name_map[$user_role_id];
+            if(\in_array($role_name, $GLOBALS['wgOAuthDiscordAllowedRoles'])){
+                return true;
+            }
+        }
+        return false;
     }
 
 }
@@ -132,48 +154,37 @@ class DiscordAuth implements \AuthProvider
 
         $user = $this->discordAdapter->getUser($token);
 
-        $user_str = json_encode($user);
+        $allowedUser = $this->discordAdapter->userHasOneOrMoreValidRolesInGuild(
+            $user,
+            $GLOBALS['wgOAuthDiscordBotToken'], 
+            $GLOBALS['wgOAuthDiscordGuildId'], 
+            $GLOBALS['wgOAuthDiscordAllowedRoles']);
+        if($allowedUser) {
+            // TODO Better way for username?
+            $unique_username = $user->username  . $user->discriminator;
 
-        $discord_bot_client = new DiscordClient([
-            'token' => $GLOBALS['wgOAuthDiscordBotToken']
-        ]);
 
-        // TODO Check goon role is assigned
-        // TODO Extract guild id to config, setup new bot in real server with Wiki name
-
-        $roles = $discord_bot_client->guild->getGuildRoles(['guild.id' => $GLOBALS['wgOAuthDiscordGuildId']]);
-        $role_id_to_name_map = array();
-        foreach ($roles as $role) {
-            $role_id_to_name_map[$role->id] = $role->name;
+            // TODO Persist user id, real discord_bot_client$discord_bot_client name, etc in a better manner
+            // TODO How to logout?
+            // TODO How to refresh roles by indivudual or admin or on timer? 
+            // TODO What happens if role changes yet session exists?
+            // TODO Add setup into dockerfile
+            // TODO Figure out backup
+            // TODO Figure out how to work mediawiki/oauth redirect etc with apache proxy on vps
+            // TODO Go over other security options for mediawiki
+            // TODO Import old wiki + main page
+            // TODO Release
+            // TODO Setup new scafolding
+            // TODO Semantic plugin + other fun extensions
+            return [
+                'name' => $unique_username, // required
+                'realname' => $user->id, // optional
+                'email' => $user->email // optional
+            ];
+        } else {
+            $errorMessage = "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again." ;
+            return false;
         }
-        $member = $discord_bot_client->guild->getGuildMember(['guild.id' =>$GLOBALS['wgOAuthDiscordGuildId']  , 'user.id' => $user->id]);
-        $username = $member->user->username;
-        foreach ($member->roles as $user_role_id) {
-            $role_name = $role_id_to_name_map[$user_role_id];
-        }
-
-
-        // TODO Better way for username?
-        $unique_username = $user->username  . $user->discriminator;
-
-
-        // TODO Persist user id, real discord_bot_client$discord_bot_client name, etc in a better manner
-        // TODO How to logout?
-        // TODO How to refresh roles by indivudual or admin or on timer? 
-        // TODO What happens if role changes yet session exists?
-        // TODO Add setup into dockerfile
-        // TODO Figure out backup
-        // TODO Figure out how to work mediawiki/oauth redirect etc with apache proxy on vps
-        // TODO Go over other security options for mediawiki
-        // TODO Import old wiki + main page
-        // TODO Release
-        // TODO Setup new scafolding
-        // TODO Semantic plugin + other fun extensions
-        return [
-            'name' => $unique_username, // required
-            'realname' => $user->id, // optional
-            'email' => $user->email // optional
-        ];
     }
 
     /**
