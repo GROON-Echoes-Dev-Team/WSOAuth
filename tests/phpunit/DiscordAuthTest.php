@@ -12,14 +12,27 @@ use MediaWiki\Auth\AuthManager;
  * @covers AuthProvider
  */
 
+ class FixedCsrfTokenProvider implements \AuthenticationProvider\CsrfTokenProvider {
+    public function getToken():string {
+        return "TestCsrfToken";
+    }
+
+ }
+
 final class DiscordAuthTest extends MockeryTestCase
 {
 
-    public function testCallingLoginPopulatesReturnParametersWithGloballySetConfig(): void
+
+    public function testAntiCrsfTokenGetsAppendedAsStateVariableToUrlAndReturnedToBeStoredInSessionAsSecret(): void
     {
         $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
 
-        $discordAuth = new DiscordAuth();
+        $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
+        $stubDiscordAdapter = new StubDiscordAdapter();
+        $stubDiscordAdapter->userRoles = array("AllowedRoleOne");
+        $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
+
+        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
 
         $key = '';
         $secret = '';
@@ -27,7 +40,7 @@ final class DiscordAuthTest extends MockeryTestCase
 
         $discordAuth->login($key, $secret, $auth_url);
 
-        $this->assertNotEmpty($auth_url); 
+        $this->assertEquals("TestAuthUrl&state=TestCsrfToken", $auth_url);
 
         unset($GLOBALS['wgOAuthDiscordOAuth2Url']);
     }
@@ -47,7 +60,7 @@ final class DiscordAuthTest extends MockeryTestCase
         
 
         $stubAuthManager = AuthManager::singleton();
-        $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'hello=code=TestCode');
+        $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'code=TestCode&state=FixedCsrfToken');
         $mockHttpAdapter->addResponse(
             "HTTP/1.1 200 OK\r\n" .
                 "Connection: close\r\n" .
@@ -57,8 +70,8 @@ final class DiscordAuthTest extends MockeryTestCase
         );
 
         $errorMessage = false;
-        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter);
-        $result = $discordAuth->getUser("TestKey", "TestSecret", $errorMessage);
+        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
+        $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
         $this->assertFalse($errorMessage, "getUser failed with message " . $errorMessage);
 
         unset($GLOBALS['wgOAuthDiscordBotToken']);
@@ -84,7 +97,7 @@ final class DiscordAuthTest extends MockeryTestCase
         
 
         $stubAuthManager = AuthManager::singleton();
-        $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'hello=code=TestCode');
+        $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'code=TestCode&state=FixedCsrfToken');
         $mockHttpAdapter->addResponse(
             "HTTP/1.1 200 OK\r\n" .
                 "Connection: close\r\n" .
@@ -94,8 +107,8 @@ final class DiscordAuthTest extends MockeryTestCase
         );
 
         $errorMessage = false;
-        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter);
-        $result = $discordAuth->getUser("TestKey", "TestSecret", $errorMessage);
+        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
+        $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
         $this->assertEquals($errorMessage, "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again.");
 
         unset($GLOBALS['wgOAuthDiscordBotToken']);
@@ -119,7 +132,7 @@ final class DiscordAuthTest extends MockeryTestCase
         
 
         $stubAuthManager = AuthManager::singleton();
-        $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'hello=code=TestCode');
+        $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'code=TestCode&state=FixedCsrfToken');
         $mockHttpAdapter->addResponse(
             "HTTP/1.1 200 OK\r\n" .
                 "Connection: close\r\n" .
@@ -129,8 +142,8 @@ final class DiscordAuthTest extends MockeryTestCase
         );
 
         $errorMessage = false;
-        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter);
-        $result = $discordAuth->getUser("TestKey", "TestSecret", $errorMessage);
+        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
+        $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
         $this->assertEquals($errorMessage, "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again.");
 
         unset($GLOBALS['wgOAuthDiscordBotToken']);

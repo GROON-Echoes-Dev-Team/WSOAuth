@@ -15,11 +15,22 @@ const REALNAME_SESSION_KEY = 'PluggableAuthLoginRealname';
 const EMAIL_SESSION_KEY = 'PluggableAuthLoginEmail';
 const ERROR_SESSION_KEY = 'PluggableAuthLoginError';
 
+interface CsrfTokenProvider {
+    public function getToken():string;
+}
+
+class RandomCsrfTokenProvider implements CsrfTokenProvider {
+
+    public function getToken():string {
+        return bin2hex(random_bytes(32)); 
+    }
+}
+
 class DiscordAuth implements \AuthProvider
 {
 
     // Allow injecting these adapters so unit tests can stub out HTTP calls.
-    function __construct($httpAdapter = null, $discordAdapter = null)
+    function __construct($httpAdapter = null, $discordAdapter = null, $csrfTokenProvider = null)
     {
         if(!$httpAdapter){
             $this->httpAdapter = new \HTTP_Request2_Adapter_Socket();
@@ -31,6 +42,12 @@ class DiscordAuth implements \AuthProvider
             $this->discordAdapter = new RealDiscordAdapter();
         } else {
             $this->discordAdapter = $discordAdapter;
+        }
+
+        if(!$csrfTokenProvider){
+            $this->csrfTokenProvider = new RandomCsrfTokenProvider();
+        } else {
+            $this->csrfTokenProvider = $csrfTokenProvider;
         }
 
         $this->logger = LoggerFactory::getInstance('DiscordAuth');
@@ -47,7 +64,7 @@ class DiscordAuth implements \AuthProvider
      */
     public function login(&$key, &$secret, &$auth_url)
     {
-        $secret =  bin2hex(random_bytes(32)); 
+        $secret = $this->csrfTokenProvider->getToken();
         $auth_url = $GLOBALS['wgOAuthDiscordOAuth2Url'] . "&state=" . $secret;
         $key = false; 
         return true;
@@ -95,29 +112,38 @@ class DiscordAuth implements \AuthProvider
 
     private function extractAccessCodeFromSession($secret, &$errorMessage){
         $authManager = AuthManager::singleton();
-        $returnToQuery = htmlspecialchars($authManager->getAuthenticationSessionData(
+        $returnToQuery = $authManager->getAuthenticationSessionData(
             RETURNTOQUERY_SESSION_KEY
-        ));
+        );
+        $returnToQuerySafeForHtmlDisplay = \htmlspecialchars($returnToQuery);
         if (!isset($returnToQuery)) {
             $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: returnToQuery Not Set. ";
             return false;
         }
         parse_str($returnToQuery, $decoded_url);
 
-        if (!array_key_exists('code', $decoded_url) || !array_key_exists('state', $decoded_url)) {
-            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. " . $returnToQuery;
+        if (!$this->validReturnToUrl($decoded_url)) {
+            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. " . $returnToQuerySafeForHtmlDisplay;
             return false;
         }
         
-
         $code = $decoded_url['code'];
         $state = $decoded_url['state'];
+
         if(hash_equals($state, $secret)) {
             return $code;
         } else {
-            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error decoding returnToQuery. " . $returnToQuery;
+            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error decoding returnToQuery. " . $returnToQuerySafeForHtmlDisplay;
             return false;
         }
+    }
+
+    private function validReturnToUrl($decoded_url) : bool {
+        return array_key_exists('code', $decoded_url) 
+        && array_key_exists('state', $decoded_url) 
+        && ctype_alnum($decoded_url['code']) 
+        && ctype_alnum($decoded_url['state']);
+
     }
 
     private function userHasValidWikiRoleOnDiscordServer($user){
