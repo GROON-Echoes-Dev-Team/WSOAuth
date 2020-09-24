@@ -7,7 +7,7 @@ use PHPUnit\Framework\TestCase;
  * @group AuthProvider
  * @covers AuthProvider
  */
-final class AuthProviderTest extends TestCase
+final class DiscordAuthTest extends TestCase
 {
 
     public function testHasInterfaceLoginMethod(): void
