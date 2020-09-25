@@ -26,9 +26,13 @@ Discord explains how to use their OAuth2 authentication flow for you own applica
 ## Setup a bot with access to view members and roles in Goosefleet discord
 
 1. Follow [these instructions](https://discordpy.readthedocs.io/en/latest/discord.html), you need manage server permission on the discord server you whish to add the bot to. You do not need OAuth2 Code grant. In step 6 of inviting your bot it doesn't need any permissions ticked so make sure they are all unchecked.
+2. Make note of your applications Client ID and Client Secret for configuring LocalSettings.php later.
+3. Make note of the applications bot secret for configuring LocalSettings.php later.
 
-## Backup the Wiki
+## Backup and stop the Wiki
 Later on you will run a database update script. Also from now on everyone will be given new mediawiki accounts tied to their discord account and the old accounts people have made should become inaccessible. So make sure you take a comprehensive wiki backup of the database, LocalSettings.php and the extensions, or maybe even the entire mediawiki installation.
+
+Stop the wiki for now as we'll be making changes to it's configuration.
 
 ## Install Pluggable Auth 
 In your mediawiki extensions folder run:
@@ -48,7 +52,7 @@ composer install
 
 ## Configure this extension
 
-Append the following to LocalSettings.php 
+Append the following to LocalSettings.php and follow the instructions in the comments to configure the variables correctly.
 ```
 // Configure Discord Authentication 
 
@@ -74,12 +78,24 @@ $wgOAuthCustomAuthProviders = [
 $wgOAuthAuthProvider = 'discord';
 
 // Configure the discord authentication provider.
-$wgOAuthDiscordOAuth2Url = "TestAuthUrl";
-$wgOAuthDiscordBotToken = "TestBotToken";
-$wgOAuthDiscordGuildId = 10023;
-$wgOAuthDiscordAllowedRoles = array("AllowedRoleOne");
-$wgOAuthDiscordClientId = "TestClientId";
-$wgOAuthDiscordClientSecret = "TestClientSecret";
+// TODO configure the below variables!
+
+// Follow these steps to configure this variable:
+// - Go to your discord application and click on OAuth2. 
+// - Add a redirect uri of "https://wiki.goosefleet.cx/wiki/index.php?title=Special:PluggableAuthLogin" without quotes. This has to match the configuration parameter $wgoOAuthDiscordRedirectUri below.
+// - Select the redirect url you added in the prior step.
+// - Select the identify and email scopes.
+// - Hit copy next to the url at the bottom and replace the word REPLACEME in the quotes below with the copied url:
+$wgOAuthDiscordOAuth2Url = "REPLACEME";
+
+$wgOAuthDiscordBotToken = "REPLACE WITH BOT TOKEN";
+// Already populated with goosefleet discord's guild id, replace if you wish to use a different server.
+$wgOAuthDiscordGuildId = 747575380436713583;
+// Assuming we want to use this existing Goosefleet role to control wiki access
+$wgOAuthDiscordAllowedRoles = array("Fleet Member");
+$wgOAuthDiscordClientId = "REPLACE WITH YOUR DISCORD APPLICATIONS CLIENT ID";
+$wgOAuthDiscordClientSecret = "REPLACE WITH YOUR DISCORD APPLICATIONS CLIENT SECRET";
+// I believe the URL below should be correct for goosefleet. However this might not be true due to apache rewrites etc.
 $wgOAuthDiscordRedirectUri = 'https://wiki.goosefleet.cx/wiki/index.php?title=Special:PluggableAuthLogin';
 
 ```
@@ -90,6 +106,10 @@ Run in your mediawiki install location:
 ```
 php ./maintenance/update.php
 ```
+
+## Restart the wiki and Test 
+
+After the update start the wiki back up, confirm that when you visit it you are sent to discord, approving on the discord page should now return you to the wiki logged in as DiscordUsername + DiscordDiscriminator. You might be sent back to discord again to click authorize a second time, i do not know why this happens currently.
 
 # Original WSOAuth REAME
 
