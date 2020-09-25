@@ -52,6 +52,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("AllowedRoleOne");
         $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
         $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
+        $GLOBALS['wgOAuthDiscordRedirectUri'] = 'https://localhost/wiki/index.php?title=Special:PluggableAuthLogin';
 
         $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
         $stubDiscordAdapter = new StubDiscordAdapter();
@@ -73,6 +74,9 @@ final class DiscordAuthTest extends MockeryTestCase
         $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
         $this->assertFalse($errorMessage, "getUser failed with message " . $errorMessage);
+        $this->assertEquals("TestUserName1234", $result['name']);
+        $this->assertEquals(1, $result['realname']);
+        $this->assertEquals("test@google.com", $result['email']);
 
         unset($GLOBALS['wgOAuthDiscordBotToken']);
         unset($GLOBALS['wgOAuthDiscordGuildId']);

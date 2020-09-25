@@ -29,7 +29,7 @@ class RandomCsrfTokenProvider implements CsrfTokenProvider {
 class DiscordAuth implements \AuthProvider
 {
 
-    // Allow injecting these adapters so unit tests can stub out HTTP calls.
+    // Allow injecting these adapters so unit tests can stub out HTTP calls and randomness.
     function __construct($httpAdapter = null, $discordAdapter = null, $csrfTokenProvider = null)
     {
         if(!$httpAdapter){
@@ -54,34 +54,50 @@ class DiscordAuth implements \AuthProvider
     }
 
     /**
-     * Log in the user through the external OAuth provider.
+     * Called by WSOAuth when an unauthed user visits the Wiki as the first step in the OAuth process.
+     * 
+     * All we do in this step is tell WSOAuth where to direct the user to by setting $auth_url. We also create, store and send
+     * a CSRF token to ensure that when the user is sent back from discord.com to the wiki we can verify they were the one who started
+     * this process.
      *
-     * @param $key
-     * @param $secret
-     * @param $auth_url
+     * @param $key Needed for proper three legged OAuth2, however the custom discord flow doesn't require this.
+     * @param $secret Stored by WSOAuth in the session for use as a CSRF token later in the process.
+     * @param $auth_url The url WSOAuth will redirect the user to starting the authentication flow.
      * @return boolean Returns true on successful login, false otherwise.
      * @internal
      */
     public function login(&$key, &$secret, &$auth_url)
     {
+        // Use secret as a CSRF token as it is stored in the users session for retrieval and verification in getUser below.
         $secret = $this->csrfTokenProvider->getToken();
+        // Provide state in the auth url so discord passes this back in the returnToQuery url parameter to be verified in getUser.
+        // See  https://discord.com/developers/docs/topics/oauth2#state-and-security 
         $auth_url = $GLOBALS['wgOAuthDiscordOAuth2Url'] . "&state=" . $secret;
+        // Other types of OAuth2 flow require key to be also saved in the session. However discord's does not so we do not use it.
         $key = false; 
         return true;
     }
 
 
     /**
-     * Get user info from session. Returns false when the request failed or the user is not authorised.
+     * Called as the second step in the OAuth flow. 
+     * 
+     * The user has now authorized us to access their id and email address on discord.com and has been sent back from there to the wiki. 
+     * 
+     * Discord has set a query parameter "returnToQuery" in this return direct which contains an access code allowing us 
+     * to call discord's REST api directly and obtain the users id and email. 
+     * 
+     * Using this we then query discord to find the users role on the server to decide if we want to authenticate them into the wiki or not.
      *
-     * @param $key
-     * @param $secret
+     * @param $key Unused by the discord oauth flow.
+     * @param $secret A CSRF token set in the login method above.
      * @param string $errorMessage Message shown to the user when there is an error.
      * @return boolean|array Returns an array with at least a 'name' when the user is authenticated, returns false when the user is not authorised or the authentication failed.
      * @internal
      */
     public function getUser($key, $secret, &$errorMessage)
     {
+        // WSOAuth stores returnToQuery in the session as the only way for us to access it.
         $code = $this->extractAccessCodeFromSession($secret, $errorMessage);
         if(!$code){
             return false;
@@ -172,7 +188,7 @@ class DiscordAuth implements \AuthProvider
             'client_secret' => $secret,
             'grant_type'    => 'authorization_code',
             'code'          => $code,
-            'redirect_uri'  => 'https://localhost/wiki/index.php?title=Special:PluggableAuthLogin',
+            'redirect_uri'  => $GLOBALS['wgOAuthDiscordRedirectUri'],
             'scope'         => 'email identify'
         ]);
 
