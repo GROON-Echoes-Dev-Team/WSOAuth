@@ -1,12 +1,11 @@
 This is a forked version of [WSOAuth](https://github.com/WikibaseSolutions/WSOAuth) an OAuth MediaWiki extension. This fork allows you use discord roles on a provided discord server to control who can read and edit a MediaWiki with this extension installed.
 
 ##### Table of Contents  
-[Overview](#overview)  
-[How it Works](#how-it-works)  
-[Setup Instructions](#setup-instructions)
-
-[Changes Made to WSOAuth](#changes-made-to-wsoauth)  
-[Original Readme](#original-readme)  
+* [Overview](#overview)  
+* [How it Works](#how-it-works)  
+* [Setup Instructions](#setup-instructions)
+* [Changes Made to WSOAuth](#changes-made-to-wsoauth)  
+* [Original Readme](#original-readme)  
 
 # Overview
 Goosefleet's wiki is currently publicly accessible. Ideally only corp members should be able to view and edit it. The Goosefleet discord server is where members authenticate to join the corp and is the source of truth for who is a Goosefleet member or not, so ideally the Wiki should defer to the discord server on who to let in or not.
