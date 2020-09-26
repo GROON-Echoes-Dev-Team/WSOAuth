@@ -4,13 +4,11 @@ This is a forked version of [WSOAuth](https://github.com/WikibaseSolutions/WSOAu
 [Overview](#overview)  
 [How it Works](#how-it-works)  
 [Setup Instructions](#setup-instructions)
+
 [Changes Made to WSOAuth](#changes-made-to-wsoauth)  
 [Original Readme](#original-readme)  
 
 # Overview
-
-Please scroll down for Setup Instructions!
-
 Goosefleet's wiki is currently publicly accessible. Ideally only corp members should be able to view and edit it. The Goosefleet discord server is where members authenticate to join the corp and is the source of truth for who is a Goosefleet member or not, so ideally the Wiki should defer to the discord server on who to let in or not.
 
 Mediawiki doesn't come with any ready to go plugin which integrates with the authentication mechanisms Discord provide. However the plugin [WSOAuth](https://www.mediawiki.org/wiki/Extension:WSOAuth) provides scaffolding for a OAuth2 based authentication flow and the [ability to create](https://www.mediawiki.org/wiki/Extension:WSOAuth/For_developers) a custom Authentication provider which I have done here. This repo is a fork of WSOAuth with the only change being the addition of a custom Authentication Provider which works with discord found in src/AuthenticationProvider/DiscordAuth.php.
@@ -132,7 +130,7 @@ No existing WSOAuth files have been changed, perhaps I have reformatted one or t
 Additionally I threw away the existing unit tests as they were useless and added a small set of my own. These are currently hard to read and understand but will be refactored to something nicer soon.
 
 
-# Original WSOAuth REAME
+# Original Readme
 
 ![PHP Lint](https://github.com/WikibaseSolutions/WSOAuth/workflows/PHP%20Lint/badge.svg)
 
