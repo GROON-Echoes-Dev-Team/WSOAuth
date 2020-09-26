@@ -1,19 +1,21 @@
+This is a forked version of [WSOAuth](https://github.com/WikibaseSolutions/WSOAuth) an OAuth MediaWiki extension. This fork allows you use discord roles on a provided discord server to control who can read and edit a MediaWiki with this extension installed.
+
+##### Table of Contents  
+[Overview](#overview)  
+[How it Works](#how-it-works)  
+[Setup Instructions](#setup-instructions)
+[Changes Made to WSOAuth](#changes-made-to-wsoauth)  
+[Original Readme](#original-readme)  
+
 # Overview
+
+Please scroll down for Setup Instructions!
 
 Goosefleet's wiki is currently publicly accessible. Ideally only corp members should be able to view and edit it. The Goosefleet discord server is where members authenticate to join the corp and is the source of truth for who is a Goosefleet member or not, so ideally the Wiki should defer to the discord server on who to let in or not.
 
 Mediawiki doesn't come with any ready to go plugin which integrates with the authentication mechanisms Discord provide. However the plugin [WSOAuth](https://www.mediawiki.org/wiki/Extension:WSOAuth) provides scaffolding for a OAuth2 based authentication flow and the [ability to create](https://www.mediawiki.org/wiki/Extension:WSOAuth/For_developers) a custom Authentication provider which I have done here. This repo is a fork of WSOAuth with the only change being the addition of a custom Authentication Provider which works with discord found in src/AuthenticationProvider/DiscordAuth.php.
 
-## List of changes made to WSOAuth by thejanitor
-The following files have been added:
-* [DiscordAuth.php](https://github.com/GROON-Echoes-Dev-Team/WSOAuth/blob/master/src/AuthenticationProvider/DiscordAuth.php)
-* [RealDiscordAdapter.php](https://github.com/GROON-Echoes-Dev-Team/WSOAuth/blob/master/src/AuthenticationProvider/RealDiscordAdapter.php)
-
-No existing WSOAuth files have been changed, perhaps I have reformatted one or two however.
-
-Additionally I threw away the existing unit tests as they were useless and added a small set of my own. These are currently hard to read and understand but will be refactored to something nicer soon.
-
-## How it works
+# How it works
 
 Discord explains how to use their OAuth2 authentication flow for you own applications [here](https://discord.com/developers/docs/topics/oauth2). Put simply this is what will happen when a goon accesses wiki.goosefleet.cx with this extension installed.
 
@@ -119,6 +121,16 @@ php ./maintenance/update.php
 ## Restart the wiki and Test 
 
 After the update start the wiki back up, confirm that when you visit it you are sent to discord, approving on the discord page should now return you to the wiki logged in as DiscordUsername + DiscordDiscriminator. You might be sent back to discord again to click authorize a second time, i do not know why this happens currently.
+
+# Changes made to WSOAuth
+The following files have been added:
+* [DiscordAuth.php](https://github.com/GROON-Echoes-Dev-Team/WSOAuth/blob/master/src/AuthenticationProvider/DiscordAuth.php)
+* [RealDiscordAdapter.php](https://github.com/GROON-Echoes-Dev-Team/WSOAuth/blob/master/src/AuthenticationProvider/RealDiscordAdapter.php)
+
+No existing WSOAuth files have been changed, perhaps I have reformatted one or two however.
+
+Additionally I threw away the existing unit tests as they were useless and added a small set of my own. These are currently hard to read and understand but will be refactored to something nicer soon.
+
 
 # Original WSOAuth REAME
 
