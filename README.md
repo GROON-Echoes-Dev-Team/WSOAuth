@@ -4,6 +4,15 @@ Goosefleet's wiki is currently publicly accessible. Ideally only corp members sh
 
 Mediawiki doesn't come with any ready to go plugin which integrates with the authentication mechanisms Discord provide. However the plugin [WSOAuth](https://www.mediawiki.org/wiki/Extension:WSOAuth) provides scaffolding for a OAuth2 based authentication flow and the [ability to create](https://www.mediawiki.org/wiki/Extension:WSOAuth/For_developers) a custom Authentication provider which I have done here. This repo is a fork of WSOAuth with the only change being the addition of a custom Authentication Provider which works with discord found in src/AuthenticationProvider/DiscordAuth.php.
 
+## List of changes made to WSOAuth by thejanitor
+The following files have been added:
+* [DiscordAuth.php](https://github.com/GROON-Echoes-Dev-Team/WSOAuth/blob/master/src/AuthenticationProvider/DiscordAuth.php)
+* [RealDiscordAdapter.php](https://github.com/GROON-Echoes-Dev-Team/WSOAuth/blob/master/src/AuthenticationProvider/RealDiscordAdapter.php)
+
+No existing WSOAuth files have been changed, perhaps I have reformatted one or two however.
+
+Additionally I threw away the existing unit tests as they were useless and added a small set of my own. These are currently hard to read and understand but will be refactored to something nicer soon.
+
 ## How it works
 
 Discord explains how to use their OAuth2 authentication flow for you own applications [here](https://discord.com/developers/docs/topics/oauth2). Put simply this is what will happen when a goon accesses wiki.goosefleet.cx with this extension installed.
