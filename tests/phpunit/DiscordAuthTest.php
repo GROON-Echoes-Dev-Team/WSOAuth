@@ -22,17 +22,21 @@ use MediaWiki\Auth\AuthManager;
 final class DiscordAuthTest extends MockeryTestCase
 {
 
-
-    public function testAntiCrsfTokenGetsAppendedAsStateVariableToUrlAndReturnedToBeStoredInSessionAsSecret(): void
-    {
-        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
-
+    private function discordAuthWithMockedHttp(){
         $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
         $stubDiscordAdapter = new StubDiscordAdapter();
         $stubDiscordAdapter->userRoles = array("AllowedRoleOne");
         $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
 
-        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
+        return new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
+    }
+
+
+    public function testAntiCrsfTokenGetsAppendedAsStateVariableToUrlAndReturnedToBeStoredInSessionAsSecret(): void
+    {
+        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
+
+        $discordAuth = $this->discordAuthWithMockedHttp();
 
         $key = '';
         $secret = '';
@@ -41,6 +45,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $discordAuth->login($key, $secret, $auth_url);
 
         $this->assertEquals("TestAuthUrl&state=TestCsrfToken", $auth_url);
+        $this->assertEquals("TestCsrfToken", $secret);
 
         unset($GLOBALS['wgOAuthDiscordOAuth2Url']);
     }
