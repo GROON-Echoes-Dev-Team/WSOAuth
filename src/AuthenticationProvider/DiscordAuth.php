@@ -26,11 +26,21 @@ class RandomCsrfTokenProvider implements CsrfTokenProvider {
     }
 }
 
+class DiscordAuthConfig{
+    function __construct($oAuth2Url){
+        $this->oAuth2Url = $oAuth2Url;
+
+    }
+    public function fromLocalSettingsGlobals(){
+        return new DiscordAuthConfig($GLOBALS['wgOAuthDiscordOAuth2Url']);
+    }
+}
+
 class DiscordAuth implements \AuthProvider
 {
 
     // Allow injecting these adapters so unit tests can stub out HTTP calls and randomness.
-    function __construct($httpAdapter = null, $discordAdapter = null, $csrfTokenProvider = null)
+    function __construct($httpAdapter = null, $discordAdapter = null, $csrfTokenProvider = null, $config = null)
     {
         if(!$httpAdapter){
             $this->httpAdapter = new \HTTP_Request2_Adapter_Socket();
@@ -48,6 +58,12 @@ class DiscordAuth implements \AuthProvider
             $this->csrfTokenProvider = new RandomCsrfTokenProvider();
         } else {
             $this->csrfTokenProvider = $csrfTokenProvider;
+        }
+
+        if(!$config){
+            $this->config = DiscordAuthConfig::fromLocalSettingsGlobals();
+        } else {
+            $this->config = $config;
         }
 
         $this->logger = LoggerFactory::getInstance('DiscordAuth');
@@ -72,7 +88,7 @@ class DiscordAuth implements \AuthProvider
         $secret = $this->csrfTokenProvider->getToken();
         // Provide state in the auth url so discord passes this back in the returnToQuery url parameter to be verified in getUser.
         // See  https://discord.com/developers/docs/topics/oauth2#state-and-security 
-        $auth_url = $GLOBALS['wgOAuthDiscordOAuth2Url'] . "&state=" . $secret;
+        $auth_url = $this->config->oAuth2Url . "&state=" . $secret;
         // Other types of OAuth2 flow require key to be also saved in the session. However discord's does not so we do not use it.
         $key = false; 
         return true;

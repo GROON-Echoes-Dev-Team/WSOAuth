@@ -27,8 +27,9 @@ final class DiscordAuthTest extends MockeryTestCase
         $stubDiscordAdapter = new StubDiscordAdapter();
         $stubDiscordAdapter->userRoles = array("AllowedRoleOne");
         $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
+        $config = new \AuthenticationProvider\DiscordAuthConfig("TestAuthUrl");
 
-        return new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
+        return new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider(), $config);
     }
 
 
@@ -58,6 +59,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
         $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
         $GLOBALS['wgOAuthDiscordRedirectUri'] = 'https://localhost/wiki/index.php?title=Special:PluggableAuthLogin';
+        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
 
         $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
         $stubDiscordAdapter = new StubDiscordAdapter();
@@ -97,6 +99,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("AllowedRoleOne");
         $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
         $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
+        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
 
         $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
         $stubDiscordAdapter = new StubDiscordAdapter();
@@ -132,6 +135,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("Goon");
         $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
         $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
+        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
 
         $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
         $stubDiscordAdapter = new StubDiscordAdapter();
@@ -167,6 +171,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("Goon");
         $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
         $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
+        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
 
         $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
         $stubDiscordAdapter = new StubDiscordAdapter();
@@ -202,6 +207,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("Goon");
         $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
         $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
+        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
 
         $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
         $stubDiscordAdapter = new StubDiscordAdapter();
@@ -237,6 +243,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("Goon");
         $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
         $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
+        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
 
         $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
         $stubDiscordAdapter = new StubDiscordAdapter();
@@ -272,6 +279,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("Goon");
         $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
         $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
+        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
 
         $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
         $stubDiscordAdapter = new StubDiscordAdapter();
