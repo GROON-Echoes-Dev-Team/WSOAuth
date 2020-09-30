@@ -105,6 +105,11 @@ $wgOAuthDiscordClientId = "REPLACE WITH YOUR DISCORD APPLICATIONS CLIENT ID";
 $wgOAuthDiscordClientSecret = "REPLACE WITH YOUR DISCORD APPLICATIONS CLIENT SECRET";
 // I believe the URL below should be correct for goosefleet. However this might not be true due to apache rewrites etc.
 $wgOAuthDiscordRedirectUri = 'https://wiki.goosefleet.cx/wiki/index.php?title=Special:PluggableAuthLogin';
+// Potentially useful debugging config variable, leave as it is for now. 
+// See https://discord.com/developers/docs/topics/oauth2#authorization-code-grant for full details on this field. It can either be set to "none" or "consent". 
+// "none" will skill the discord auth screen if the user has already given the wiki permission to check their roles. 
+// "consent" will always request re-authorization from the user. 
+$wgOAuthDiscordPrompt = "none";
 
 ```
 

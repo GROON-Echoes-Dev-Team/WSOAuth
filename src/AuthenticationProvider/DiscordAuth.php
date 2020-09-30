@@ -60,7 +60,7 @@ class DiscordAuth implements \AuthProvider
         $secret = $this->csrfTokenProvider->getToken();
         // Provide state in the auth url so discord passes this back in the returnToQuery url parameter to be verified in getUser.
         // See  https://discord.com/developers/docs/topics/oauth2#state-and-security 
-        $auth_url = $this->config->oAuth2Url . "&state=" . $secret;
+        $auth_url = $this->config->oAuth2Url . "&state=" . $secret . "&prompt=" . $this->config->prompt;
         // Other types of OAuth2 flow require key to be also saved in the session. However discord's does not so we do not use it.
         $key = false;
         return true;
@@ -251,9 +251,8 @@ class RandomCsrfTokenProvider implements CsrfTokenProvider
 
 class DiscordAuthConfig
 {
-    function __construct($oAuth2Url, $clientId, $clientSecret, $redirectUri, $allowedRoles, $botToken, $guildId)
+    function __construct($oAuth2Url, $clientId, $clientSecret, $redirectUri, $allowedRoles, $botToken, $guildId, $prompt)
     {
-
         $this->oAuth2Url = $oAuth2Url;
         $this->clientId = $clientId;
         $this->clientSecret = $clientSecret;
@@ -261,7 +260,7 @@ class DiscordAuthConfig
         $this->allowedRoles = $allowedRoles;
         $this->botToken = $botToken;
         $this->guildId = $guildId;
-
+        $this->prompt = $prompt;
     }
 
     private static function validGlobalArg($arg, $expectedType){
@@ -282,7 +281,8 @@ class DiscordAuthConfig
             DiscordAuthConfig::validGlobalArg('wgOAuthDiscordRedirectUri',"string"),
             DiscordAuthConfig::validGlobalArg('wgOAuthDiscordAllowedRoles',"array"),
             DiscordAuthConfig::validGlobalArg('wgOAuthDiscordBotToken',"string"),
-            DiscordAuthConfig::validGlobalArg('wgOAuthDiscordGuildId',"integer")
+            DiscordAuthConfig::validGlobalArg('wgOAuthDiscordGuildId',"integer"),
+            DiscordAuthConfig::validGlobalArg('wgOAuthDiscordPrompt',"string")
         );
     }
 }

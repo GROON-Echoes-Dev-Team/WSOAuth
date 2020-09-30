@@ -50,7 +50,8 @@ final class DiscordAuthTest extends MockeryTestCase
             "https://localhost/wiki/index.php?title=Special:PluggableAuthLogin",
             array("AllowedRoleOne"),
             "TestBotToken",
-            10023
+            10023,
+            "none"
         );
 
         return array(new DiscordAuth($mockHttpAdapter, $stubDiscordRestApi, new FixedCsrfTokenProvider(), $config), $mockHttpAdapter, $stubDiscordRestApi, $stubAuthManager);
@@ -67,7 +68,7 @@ final class DiscordAuthTest extends MockeryTestCase
 
         $discordAuth->login($key, $secret, $auth_url);
 
-        $this->assertEquals("TestAuthUrl&state=TestCsrfToken", $auth_url);
+        $this->assertEquals("TestAuthUrl&state=TestCsrfToken&prompt=none", $auth_url);
         $this->assertEquals("TestCsrfToken", $secret);
     }
 
