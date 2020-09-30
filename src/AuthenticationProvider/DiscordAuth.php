@@ -6,55 +6,7 @@ use MediaWiki\Auth\AuthManager;
 use MediaWiki\Logger\LoggerFactory;
 use HTTP_Request2;
 
-const RETURNTOURL_SESSION_KEY = 'PluggableAuthLoginReturnToUrl';
-const RETURNTOPAGE_SESSION_KEY = 'PluggableAuthLoginReturnToPage';
 const RETURNTOQUERY_SESSION_KEY = 'PluggableAuthLoginReturnToQuery';
-const EXTRALOGINFIELDS_SESSION_KEY = 'PluggableAuthLoginExtraLoginFields';
-const USERNAME_SESSION_KEY = 'PluggableAuthLoginUsername';
-const REALNAME_SESSION_KEY = 'PluggableAuthLoginRealname';
-const EMAIL_SESSION_KEY = 'PluggableAuthLoginEmail';
-const ERROR_SESSION_KEY = 'PluggableAuthLoginError';
-
-interface CsrfTokenProvider
-{
-    public function getToken(): string;
-}
-
-class RandomCsrfTokenProvider implements CsrfTokenProvider
-{
-
-    public function getToken(): string
-    {
-        return bin2hex(random_bytes(32));
-    }
-}
-
-class DiscordAuthConfig
-{
-    function __construct($oAuth2Url, $clientId, $clientSecret, $redirectUri, $allowedRoles, $botToken, $guildId)
-    {
-        $this->oAuth2Url = $oAuth2Url;
-        $this->clientId = $clientId;
-        $this->clientSecret = $clientSecret;
-        $this->redirectUri  = $redirectUri;
-        $this->allowedRoles = $allowedRoles;
-        $this->botToken = $botToken;
-        $this->guildId = $guildId;
-    }
-    public static function fromLocalSettingsGlobals()
-    {
-        return new DiscordAuthConfig(
-            $GLOBALS['wgOAuthDiscordOAuth2Url'],
-            $GLOBALS['wgOAuthDiscordClientId'],
-            $GLOBALS['wgOAuthDiscordClientSecret'],
-            $GLOBALS['wgOAuthDiscordRedirectUri'],
-            $GLOBALS['wgOAuthDiscordAllowedRoles'],
-            $GLOBALS['wgOAuthDiscordBotToken'],
-            $GLOBALS['wgOAuthDiscordGuildId']
-        );
-    }
-}
-
 class DiscordAuth implements \AuthProvider
 {
 
@@ -269,5 +221,46 @@ class DiscordAuth implements \AuthProvider
      */
     public function logout(\User &$user)
     {
+    }
+}
+
+
+interface CsrfTokenProvider
+{
+    public function getToken(): string;
+}
+
+class RandomCsrfTokenProvider implements CsrfTokenProvider
+{
+
+    public function getToken(): string
+    {
+        return bin2hex(random_bytes(32));
+    }
+}
+
+class DiscordAuthConfig
+{
+    function __construct($oAuth2Url, $clientId, $clientSecret, $redirectUri, $allowedRoles, $botToken, $guildId)
+    {
+        $this->oAuth2Url = $oAuth2Url;
+        $this->clientId = $clientId;
+        $this->clientSecret = $clientSecret;
+        $this->redirectUri  = $redirectUri;
+        $this->allowedRoles = $allowedRoles;
+        $this->botToken = $botToken;
+        $this->guildId = $guildId;
+    }
+    public static function fromLocalSettingsGlobals()
+    {
+        return new DiscordAuthConfig(
+            $GLOBALS['wgOAuthDiscordOAuth2Url'],
+            $GLOBALS['wgOAuthDiscordClientId'],
+            $GLOBALS['wgOAuthDiscordClientSecret'],
+            $GLOBALS['wgOAuthDiscordRedirectUri'],
+            $GLOBALS['wgOAuthDiscordAllowedRoles'],
+            $GLOBALS['wgOAuthDiscordBotToken'],
+            $GLOBALS['wgOAuthDiscordGuildId']
+        );
     }
 }
