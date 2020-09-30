@@ -2,6 +2,7 @@
 
 namespace AuthenticationProvider;
 
+use Exception;
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\Logger\LoggerFactory;
 use HTTP_Request2;
@@ -170,14 +171,14 @@ class DiscordAuth implements \AuthProvider
             HTTP_Request2::METHOD_POST,
             array('adapter' => $this->httpAdapter)
         );
-        $request->addPostParameter([
+        $request->addPostParameter(array(
             'client_id'     => $this->config->clientId,
             'client_secret' => $this->config->clientSecret,
             'grant_type'    => 'authorization_code',
             'code'          => $code,
             'redirect_uri'  => $this->config->redirectUri,
             'scope'         => 'email identify'
-        ]);
+        ));
 
         try {
             $response = $request->send();
@@ -194,8 +195,8 @@ class DiscordAuth implements \AuthProvider
                 }
                 return $result_json->access_token;
             } else {
-                $errorMessage = $this->constructSafeErrorMessage('Error asking Discord Server for user information. The response from Discord was: ' . $response->getStatus() . ' ' .
-                    $response->getReasonPhrase());
+                $errorMessage = ('Error asking Discord Server for user information. The response from Discord was: ' . $response->getStatus() . ' ' .
+                    $response->getReasonPhrase() . " request was " . implode(",",$request->getHeaders()) . "/" . $request->getBody()); 
                 return false;
             }
         } catch (\Exception $e) {
@@ -252,6 +253,7 @@ class DiscordAuthConfig
 {
     function __construct($oAuth2Url, $clientId, $clientSecret, $redirectUri, $allowedRoles, $botToken, $guildId)
     {
+
         $this->oAuth2Url = $oAuth2Url;
         $this->clientId = $clientId;
         $this->clientSecret = $clientSecret;
@@ -259,17 +261,32 @@ class DiscordAuthConfig
         $this->allowedRoles = $allowedRoles;
         $this->botToken = $botToken;
         $this->guildId = $guildId;
+
     }
+
+    private static function validGlobalArg($arg, $expectedType){
+        $val = $GLOBALS[$arg];
+        if(empty($val) || gettype($val) !== $expectedType){
+            throw new WSOAuthDiscordIncorrectlyConfiguredException("Error: $" . $arg . " must be set and of the type " . $expectedType . " in your LocalSettings.php. It is not currently.");
+        }
+        return $val;
+    }
+
     public static function fromLocalSettingsGlobals()
     {
+        // All of the below to be defined in LocalSettings.php by the user of this extension.
         return new DiscordAuthConfig(
-            $GLOBALS['wgOAuthDiscordOAuth2Url'],
-            $GLOBALS['wgOAuthDiscordClientId'],
-            $GLOBALS['wgOAuthDiscordClientSecret'],
-            $GLOBALS['wgOAuthDiscordRedirectUri'],
-            $GLOBALS['wgOAuthDiscordAllowedRoles'],
-            $GLOBALS['wgOAuthDiscordBotToken'],
-            $GLOBALS['wgOAuthDiscordGuildId']
+            DiscordAuthConfig::validGlobalArg('wgOAuthDiscordOAuth2Url', "string"),
+            DiscordAuthConfig::validGlobalArg('wgOAuthDiscordClientId',"integer"),
+            DiscordAuthConfig::validGlobalArg('wgOAuthDiscordClientSecret',"string"),
+            DiscordAuthConfig::validGlobalArg('wgOAuthDiscordRedirectUri',"string"),
+            DiscordAuthConfig::validGlobalArg('wgOAuthDiscordAllowedRoles',"array"),
+            DiscordAuthConfig::validGlobalArg('wgOAuthDiscordBotToken',"string"),
+            DiscordAuthConfig::validGlobalArg('wgOAuthDiscordGuildId',"integer")
         );
     }
+}
+
+class WSOAuthDiscordIncorrectlyConfiguredException extends Exception{
+
 }
