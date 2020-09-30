@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use Mockery\Adapter\Phpunit\MockeryTestCase;
@@ -12,32 +13,51 @@ use MediaWiki\Auth\AuthManager;
  * @covers AuthProvider
  */
 
- class FixedCsrfTokenProvider implements \AuthenticationProvider\CsrfTokenProvider {
-    public function getToken():string {
+class FixedCsrfTokenProvider implements \AuthenticationProvider\CsrfTokenProvider
+{
+    public function getToken(): string
+    {
         return "TestCsrfToken";
     }
-
- }
+}
 
 final class DiscordAuthTest extends MockeryTestCase
 {
 
-    private function discordAuthWithMockedHttp(){
+    private function discordAuthWithMockedHttp()
+    {
         $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
         $stubDiscordAdapter = new StubDiscordAdapter();
         $stubDiscordAdapter->userRoles = array("AllowedRoleOne");
         $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
-        $config = new \AuthenticationProvider\DiscordAuthConfig("TestAuthUrl");
 
-        return new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider(), $config);
+
+        $stubAuthManager = AuthManager::singleton();
+        $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'code=TestCode&state=FixedCsrfToken');
+        $mockHttpAdapter->addResponse(
+            "HTTP/1.1 200 OK\r\n" .
+                "Connection: close\r\n" .
+                "\r\n" .
+                '{"access_token":"FakeAccessToken"}',
+            'https://discord.com/api/oauth2/token'
+        );
+        $config = new \AuthenticationProvider\DiscordAuthConfig(
+            "TestAuthUrl",
+            "TestClientId",
+            "TestClientSecret",
+            "https://localhost/wiki/index.php?title=Special:PluggableAuthLogin",
+            array("AllowedRoleOne"),
+            "TestBotToken",
+            10023
+        );
+
+        return array(new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider(), $config), $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager);
     }
 
 
     public function testAntiCrsfTokenGetsAppendedAsStateVariableToUrlAndReturnedToBeStoredInSessionAsSecret(): void
     {
-        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
-
-        $discordAuth = $this->discordAuthWithMockedHttp();
+        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
         $key = '';
         $secret = '';
@@ -48,263 +68,97 @@ final class DiscordAuthTest extends MockeryTestCase
         $this->assertEquals("TestAuthUrl&state=TestCsrfToken", $auth_url);
         $this->assertEquals("TestCsrfToken", $secret);
 
-        unset($GLOBALS['wgOAuthDiscordOAuth2Url']);
     }
 
     public function testGivenKeyAndSecretGetUserLooksUpUserRolesAndAuthsFromDiscord()
     {
-        $GLOBALS['wgOAuthDiscordBotToken'] = "TestBotToken";
-        $GLOBALS['wgOAuthDiscordGuildId'] = 10023;
-        $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("AllowedRoleOne");
-        $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
-        $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
-        $GLOBALS['wgOAuthDiscordRedirectUri'] = 'https://localhost/wiki/index.php?title=Special:PluggableAuthLogin';
-        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
-
-        $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
-        $stubDiscordAdapter = new StubDiscordAdapter();
-        $stubDiscordAdapter->userRoles = array("AllowedRoleOne");
-        $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
-        
-
-        $stubAuthManager = AuthManager::singleton();
-        $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'code=TestCode&state=FixedCsrfToken');
-        $mockHttpAdapter->addResponse(
-            "HTTP/1.1 200 OK\r\n" .
-                "Connection: close\r\n" .
-                "\r\n" .
-                '{"access_token":"FakeAccessToken"}',
-            'https://discord.com/api/oauth2/token'
-        );
+        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
         $errorMessage = false;
-        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
+
         $this->assertFalse($errorMessage, "getUser failed with message " . $errorMessage);
         $this->assertEquals("TestUserName1234", $result['name']);
         $this->assertEquals(1, $result['realname']);
         $this->assertEquals("test@google.com", $result['email']);
-
-        unset($GLOBALS['wgOAuthDiscordBotToken']);
-        unset($GLOBALS['wgOAuthDiscordGuildId']);
-        unset($GLOBALS['wgOAuthDiscordAllowedRoles']);
-        unset($GLOBALS['wgOAuthDiscordClientId']);
-        unset($GLOBALS['wgOAuthDiscordClientSecret']);
     }
 
     public function testFailsWithErrorIfUserDoesNotHaveRole()
     {
-        $GLOBALS['wgOAuthDiscordBotToken'] = "TestBotToken";
-        $GLOBALS['wgOAuthDiscordGuildId'] = 10023;
-        $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("AllowedRoleOne");
-        $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
-        $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
-        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
+        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
-        $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
-        $stubDiscordAdapter = new StubDiscordAdapter();
-        // No Roles
+        // Discord will return saying the user has no roles on the server
         $stubDiscordAdapter->userRoles = array();
-        $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
-        
 
-        $stubAuthManager = AuthManager::singleton();
-        $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'code=TestCode&state=FixedCsrfToken');
-        $mockHttpAdapter->addResponse(
-            "HTTP/1.1 200 OK\r\n" .
-                "Connection: close\r\n" .
-                "\r\n" .
-                '{"access_token":"FakeAccessToken"}',
-            'https://discord.com/api/oauth2/token'
-        );
-
-        $errorMessage = false;
-        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
-        $this->assertEquals($errorMessage, "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again.");
 
-        unset($GLOBALS['wgOAuthDiscordBotToken']);
-        unset($GLOBALS['wgOAuthDiscordGuildId']);
-        unset($GLOBALS['wgOAuthDiscordAllowedRoles']);
+        $this->assertEquals($errorMessage, "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again.");
+        $this->assertFalse($result);
     }
 
     public function testGetUserFailsWithErrorIfUserHasRolesButNoneAreValidToSeeTheWiki()
     {
-        $GLOBALS['wgOAuthDiscordBotToken'] = "TestBotToken";
-        $GLOBALS['wgOAuthDiscordGuildId'] = 10023;
-        $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("Goon");
-        $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
-        $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
-        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
-
-        $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
-        $stubDiscordAdapter = new StubDiscordAdapter();
+        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
         // Invalid Wiki Roles
         $stubDiscordAdapter->userRoles = array("Guest", "Spy");
-        $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
-        
-
-        $stubAuthManager = AuthManager::singleton();
-        $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'code=TestCode&state=FixedCsrfToken');
-        $mockHttpAdapter->addResponse(
-            "HTTP/1.1 200 OK\r\n" .
-                "Connection: close\r\n" .
-                "\r\n" .
-                '{"access_token":"FakeAccessToken"}',
-            'https://discord.com/api/oauth2/token'
-        );
 
         $errorMessage = false;
-        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
-        $this->assertEquals($errorMessage, "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again.");
 
-        unset($GLOBALS['wgOAuthDiscordBotToken']);
-        unset($GLOBALS['wgOAuthDiscordGuildId']);
-        unset($GLOBALS['wgOAuthDiscordAllowedRoles']);
+        $this->assertEquals($errorMessage, "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again.");
+        $this->assertFalse($result);
     }
 
     public function testErrorDisplayedWhenCsrfTokenSentBackToWikiDoesntMatchOneSavedInSession()
     {
-        $GLOBALS['wgOAuthDiscordBotToken'] = "TestBotToken";
-        $GLOBALS['wgOAuthDiscordGuildId'] = 10023;
-        $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("Goon");
-        $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
-        $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
-        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
+        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
-        $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
-        $stubDiscordAdapter = new StubDiscordAdapter();
-        // Invalid Wiki Roles
-        $stubDiscordAdapter->userRoles = array("Guest", "Spy");
-        $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
-        
-
-        $stubAuthManager = AuthManager::singleton();
+        // FixedCsrfToken is the one provided to getUser as the token stored in the users session, yet WRONGTOKEN is provided on the url back from discord hence this is a possible CSRF attack.
         $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'code=TestCode&state=WRONGTOKEN');
-        $mockHttpAdapter->addResponse(
-            "HTTP/1.1 200 OK\r\n" .
-                "Connection: close\r\n" .
-                "\r\n" .
-                '{"access_token":"FakeAccessToken"}',
-            'https://discord.com/api/oauth2/token'
-        );
 
         $errorMessage = false;
-        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
-        $this->assertEquals($errorMessage, "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error decoding returnToQuery. code=TestCode&amp;state=WRONGTOKEN");
 
-        unset($GLOBALS['wgOAuthDiscordBotToken']);
-        unset($GLOBALS['wgOAuthDiscordGuildId']);
-        unset($GLOBALS['wgOAuthDiscordAllowedRoles']);
+        $this->assertEquals($errorMessage, "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error decoding returnToQuery. code=TestCode&amp;state=WRONGTOKEN");
+        $this->assertFalse($result);
     }
 
     public function testMaliciousCodeInRefererUrlIsEscapedInTheErrorMessageDisplayedToUser()
     {
-        $GLOBALS['wgOAuthDiscordBotToken'] = "TestBotToken";
-        $GLOBALS['wgOAuthDiscordGuildId'] = 10023;
-        $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("Goon");
-        $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
-        $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
-        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
+        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
-        $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
-        $stubDiscordAdapter = new StubDiscordAdapter();
-        // Invalid Wiki Roles
-        $stubDiscordAdapter->userRoles = array("Goon");
-        $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
-        
-
-        $stubAuthManager = AuthManager::singleton();
         $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', "malcious=<IMG SRC=javascript:alert('XSS')>&code=TestCode&state=BadTokenCausingErrorMessageToDisplayWithThisInHtml");
-        $mockHttpAdapter->addResponse(
-            "HTTP/1.1 200 OK\r\n" .
-                "Connection: close\r\n" .
-                "\r\n" .
-                '{"access_token":"FakeAccessToken"}',
-            'https://discord.com/api/oauth2/token'
-        );
 
         $errorMessage = false;
-        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
-        $this->assertEquals($errorMessage, "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error decoding returnToQuery. malcious=&lt;IMG SRC=javascript:alert('XSS')&gt;&amp;code=TestCode&amp;state=BadTokenCausingErrorMessageToDisplayWithThisInHtml");
 
-        unset($GLOBALS['wgOAuthDiscordBotToken']);
-        unset($GLOBALS['wgOAuthDiscordGuildId']);
-        unset($GLOBALS['wgOAuthDiscordAllowedRoles']);
+        $this->assertEquals($errorMessage, "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error decoding returnToQuery. malcious=&lt;IMG SRC=javascript:alert('XSS')&gt;&amp;code=TestCode&amp;state=BadTokenCausingErrorMessageToDisplayWithThisInHtml");
+        $this->assertFalse($result);
     }
 
     public function testInvalidCharacterInCodeShowsError()
     {
-        $GLOBALS['wgOAuthDiscordBotToken'] = "TestBotToken";
-        $GLOBALS['wgOAuthDiscordGuildId'] = 10023;
-        $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("Goon");
-        $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
-        $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
-        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
+        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
-        $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
-        $stubDiscordAdapter = new StubDiscordAdapter();
-        // Invalid Wiki Roles
-        $stubDiscordAdapter->userRoles = array("Goon");
-        $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
-        
-
-        $stubAuthManager = AuthManager::singleton();
         $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', "code=TestCode\<&state=FixedCsrfToken");
-        $mockHttpAdapter->addResponse(
-            "HTTP/1.1 200 OK\r\n" .
-                "Connection: close\r\n" .
-                "\r\n" .
-                '{"access_token":"FakeAccessToken"}',
-            'https://discord.com/api/oauth2/token'
-        );
 
         $errorMessage = false;
-        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
-        $this->assertEquals($errorMessage, "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. code=TestCode\&lt;&amp;state=FixedCsrfToken");
 
-        unset($GLOBALS['wgOAuthDiscordBotToken']);
-        unset($GLOBALS['wgOAuthDiscordGuildId']);
-        unset($GLOBALS['wgOAuthDiscordAllowedRoles']);
+        $this->assertEquals($errorMessage, "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. code=TestCode\&lt;&amp;state=FixedCsrfToken");
+        $this->assertFalse($result);
     }
 
     public function testInvalidCharacterInStateShowsError()
     {
-        $GLOBALS['wgOAuthDiscordBotToken'] = "TestBotToken";
-        $GLOBALS['wgOAuthDiscordGuildId'] = 10023;
-        $GLOBALS['wgOAuthDiscordAllowedRoles'] = array("Goon");
-        $GLOBALS['wgOAuthDiscordClientId'] = "TestClientId";
-        $GLOBALS['wgOAuthDiscordClientSecret'] = "TestClientSecret";
-        $GLOBALS['wgOAuthDiscordOAuth2Url'] = "TestAuthUrl";
+        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
-        $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
-        $stubDiscordAdapter = new StubDiscordAdapter();
-        // Invalid Wiki Roles
-        $stubDiscordAdapter->userRoles = array("Goon");
-        $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
-        
-
-        $stubAuthManager = AuthManager::singleton();
         $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', "code=TestCode&state=FixedCsrfToken^^");
-        $mockHttpAdapter->addResponse(
-            "HTTP/1.1 200 OK\r\n" .
-                "Connection: close\r\n" .
-                "\r\n" .
-                '{"access_token":"FakeAccessToken"}',
-            'https://discord.com/api/oauth2/token'
-        );
 
         $errorMessage = false;
-        $discordAuth = new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider());
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
-        $this->assertEquals($errorMessage, "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. code=TestCode&amp;state=FixedCsrfToken^^");
 
-        unset($GLOBALS['wgOAuthDiscordBotToken']);
-        unset($GLOBALS['wgOAuthDiscordGuildId']);
-        unset($GLOBALS['wgOAuthDiscordAllowedRoles']);
+        $this->assertEquals($errorMessage, "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. code=TestCode&amp;state=FixedCsrfToken^^");
+        $errorMessage = false;
     }
 }

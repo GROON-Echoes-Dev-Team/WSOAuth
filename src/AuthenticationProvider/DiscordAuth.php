@@ -15,24 +15,43 @@ const REALNAME_SESSION_KEY = 'PluggableAuthLoginRealname';
 const EMAIL_SESSION_KEY = 'PluggableAuthLoginEmail';
 const ERROR_SESSION_KEY = 'PluggableAuthLoginError';
 
-interface CsrfTokenProvider {
-    public function getToken():string;
+interface CsrfTokenProvider
+{
+    public function getToken(): string;
 }
 
-class RandomCsrfTokenProvider implements CsrfTokenProvider {
+class RandomCsrfTokenProvider implements CsrfTokenProvider
+{
 
-    public function getToken():string {
-        return bin2hex(random_bytes(32)); 
+    public function getToken(): string
+    {
+        return bin2hex(random_bytes(32));
     }
 }
 
-class DiscordAuthConfig{
-    function __construct($oAuth2Url){
+class DiscordAuthConfig
+{
+    function __construct($oAuth2Url, $clientId, $clientSecret, $redirectUri, $allowedRoles, $botToken, $guildId)
+    {
         $this->oAuth2Url = $oAuth2Url;
-
+        $this->clientId = $clientId;
+        $this->clientSecret = $clientSecret;
+        $this->redirectUri  = $redirectUri;
+        $this->allowedRoles = $allowedRoles;
+        $this->botToken = $botToken;
+        $this->guildId = $guildId;
     }
-    public function fromLocalSettingsGlobals(){
-        return new DiscordAuthConfig($GLOBALS['wgOAuthDiscordOAuth2Url']);
+    public static function fromLocalSettingsGlobals()
+    {
+        return new DiscordAuthConfig(
+            $GLOBALS['wgOAuthDiscordOAuth2Url'],
+            $GLOBALS['wgOAuthDiscordClientId'],
+            $GLOBALS['wgOAuthDiscordClientSecret'],
+            $GLOBALS['wgOAuthDiscordRedirectUri'],
+            $GLOBALS['wgOAuthDiscordAllowedRoles'],
+            $GLOBALS['wgOAuthDiscordBotToken'],
+            $GLOBALS['wgOAuthDiscordGuildId']
+        );
     }
 }
 
@@ -42,25 +61,25 @@ class DiscordAuth implements \AuthProvider
     // Allow injecting these adapters so unit tests can stub out HTTP calls and randomness.
     function __construct($httpAdapter = null, $discordAdapter = null, $csrfTokenProvider = null, $config = null)
     {
-        if(!$httpAdapter){
+        if (!$httpAdapter) {
             $this->httpAdapter = new \HTTP_Request2_Adapter_Socket();
         } else {
             $this->httpAdapter = $httpAdapter;
         }
 
-        if(!$discordAdapter){
+        if (!$discordAdapter) {
             $this->discordAdapter = new RealDiscordAdapter();
         } else {
             $this->discordAdapter = $discordAdapter;
         }
 
-        if(!$csrfTokenProvider){
+        if (!$csrfTokenProvider) {
             $this->csrfTokenProvider = new RandomCsrfTokenProvider();
         } else {
             $this->csrfTokenProvider = $csrfTokenProvider;
         }
 
-        if(!$config){
+        if (!$config) {
             $this->config = DiscordAuthConfig::fromLocalSettingsGlobals();
         } else {
             $this->config = $config;
@@ -90,7 +109,7 @@ class DiscordAuth implements \AuthProvider
         // See  https://discord.com/developers/docs/topics/oauth2#state-and-security 
         $auth_url = $this->config->oAuth2Url . "&state=" . $secret;
         // Other types of OAuth2 flow require key to be also saved in the session. However discord's does not so we do not use it.
-        $key = false; 
+        $key = false;
         return true;
     }
 
@@ -115,34 +134,33 @@ class DiscordAuth implements \AuthProvider
     {
         // WSOAuth stores returnToQuery in the session as the only way for us to access it.
         $code = $this->extractAccessCodeFromSession($secret, $errorMessage);
-        if(!$code){
+        if (!$code) {
             return false;
         }
 
-        $clientId = $GLOBALS['wgOAuthDiscordClientId'];
-        $clientSecret = $GLOBALS['wgOAuthDiscordClientSecret'];
-        $token = $this->requestDiscordUserToken($clientId, $clientSecret, $code, $errorMessage);
+        $token = $this->requestDiscordUserToken($code, $errorMessage);
         if (!$token) {
             return false;
         }
 
         $user = $this->discordAdapter->getUser($token);
 
-        if($this->userHasValidWikiRoleOnDiscordServer($user)) {
+        if ($this->userHasValidWikiRoleOnDiscordServer($user)) {
             $unique_username = $user->username  . $user->discriminator;
 
             return [
-                'name' => $unique_username, 
-                'realname' => $user->id, 
-                'email' => $user->email 
+                'name' => $unique_username,
+                'realname' => $user->id,
+                'email' => $user->email
             ];
         } else {
-            $errorMessage = "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again." ;
+            $errorMessage = "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again.";
             return false;
         }
     }
 
-    private function extractAccessCodeFromSession($secret, &$errorMessage){
+    private function extractAccessCodeFromSession($secret, &$errorMessage)
+    {
         $authManager = AuthManager::singleton();
         $returnToQuery = $authManager->getAuthenticationSessionData(
             RETURNTOQUERY_SESSION_KEY
@@ -158,11 +176,11 @@ class DiscordAuth implements \AuthProvider
             $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. " . $returnToQuerySafeForHtmlDisplay;
             return false;
         }
-        
+
         $code = $decoded_url['code'];
         $state = $decoded_url['state'];
 
-        if(hash_equals($state, $secret)) {
+        if (hash_equals($state, $secret)) {
             return $code;
         } else {
             $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error decoding returnToQuery. " . $returnToQuerySafeForHtmlDisplay;
@@ -170,29 +188,31 @@ class DiscordAuth implements \AuthProvider
         }
     }
 
-    private function validReturnToUrl($decoded_url) : bool {
-        return array_key_exists('code', $decoded_url) 
-        && array_key_exists('state', $decoded_url) 
-        && ctype_alnum($decoded_url['code']) 
-        && ctype_alnum($decoded_url['state']);
-
+    private function validReturnToUrl($decoded_url): bool
+    {
+        return array_key_exists('code', $decoded_url)
+            && array_key_exists('state', $decoded_url)
+            && ctype_alnum($decoded_url['code'])
+            && ctype_alnum($decoded_url['state']);
     }
 
-    private function userHasValidWikiRoleOnDiscordServer($user){
+    private function userHasValidWikiRoleOnDiscordServer($user)
+    {
         $userRoles = $this->discordAdapter->getServerRolesForUser(
             $user,
-            $GLOBALS['wgOAuthDiscordBotToken'], 
-            $GLOBALS['wgOAuthDiscordGuildId']);
-        
-        foreach ($userRoles as $userRole){
-            if(\in_array($userRole, $GLOBALS['wgOAuthDiscordAllowedRoles'])){
+            $this->config->botToken,
+            $this->config->guildId
+        );
+
+        foreach ($userRoles as $userRole) {
+            if (\in_array($userRole, $this->config->allowedRoles)) {
                 return true;
             }
         }
         return false;
     }
 
-    private function requestDiscordUserToken($key, $secret, $code, &$errorMessage)
+    private function requestDiscordUserToken($code, &$errorMessage)
     {
         $request = new HTTP_Request2(
             'https://discord.com/api/oauth2/token',
@@ -200,11 +220,11 @@ class DiscordAuth implements \AuthProvider
             array('adapter' => $this->httpAdapter)
         );
         $request->addPostParameter([
-            'client_id'     => $key,
-            'client_secret' => $secret,
+            'client_id'     => $this->config->clientId,
+            'client_secret' => $this->config->clientSecret,
             'grant_type'    => 'authorization_code',
             'code'          => $code,
-            'redirect_uri'  => $GLOBALS['wgOAuthDiscordRedirectUri'],
+            'redirect_uri'  => $this->config->redirectUri,
             'scope'         => 'email identify'
         ]);
 
