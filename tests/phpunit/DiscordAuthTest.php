@@ -24,7 +24,7 @@ class FixedCsrfTokenProvider implements \AuthenticationProvider\CsrfTokenProvide
 final class DiscordAuthTest extends MockeryTestCase
 {
 
-    private function discordAuthWithMockedHttp()
+    private function discordAuthWithMockedHttp($addCorrectDiscordTokenResponse = true)
     {
         $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
         $stubDiscordAdapter = new StubDiscordAdapter();
@@ -34,13 +34,15 @@ final class DiscordAuthTest extends MockeryTestCase
 
         $stubAuthManager = AuthManager::singleton();
         $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'code=TestCode&state=FixedCsrfToken');
-        $mockHttpAdapter->addResponse(
-            "HTTP/1.1 200 OK\r\n" .
-                "Connection: close\r\n" .
-                "\r\n" .
-                '{"access_token":"FakeAccessToken"}',
-            'https://discord.com/api/oauth2/token'
-        );
+        if ($addCorrectDiscordTokenResponse) {
+            $mockHttpAdapter->addResponse(
+                "HTTP/1.1 200 OK\r\n" .
+                    "Connection: close\r\n" .
+                    "\r\n" .
+                    '{"access_token":"FakeAccessToken"}',
+                'https://discord.com/api/oauth2/token'
+            );
+        }
         $config = new \AuthenticationProvider\DiscordAuthConfig(
             "TestAuthUrl",
             "TestClientId",
@@ -67,7 +69,6 @@ final class DiscordAuthTest extends MockeryTestCase
 
         $this->assertEquals("TestAuthUrl&state=TestCsrfToken", $auth_url);
         $this->assertEquals("TestCsrfToken", $secret);
-
     }
 
     public function testGivenKeyAndSecretGetUserLooksUpUserRolesAndAuthsFromDiscord()
@@ -81,6 +82,40 @@ final class DiscordAuthTest extends MockeryTestCase
         $this->assertEquals("TestUserName1234", $result['name']);
         $this->assertEquals(1, $result['realname']);
         $this->assertEquals("test@google.com", $result['email']);
+    }
+
+    public function testFailsWithErrorIfDiscordRespondsWithNonOkHttpStatus()
+    {
+        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp(false);
+
+        $mockHttpAdapter->addResponse(
+            "HTTP/1.1 500 Internal Server Error\r\n" .
+                "Connection: close\r\n",
+            'https://discord.com/api/oauth2/token'
+        );
+
+        $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
+
+        $this->assertEquals($errorMessage, "Error asking Discord Server for user information. The response from Discord was: 500 Internal Server Error");
+        $this->assertFalse($result);
+    }
+
+    public function testFailsWithErrorIfDiscordRespondsErrorFieldSetInJson()
+    {
+        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp(false);
+
+        $mockHttpAdapter->addResponse(
+            "HTTP/1.1 200 OK\r\n" .
+                "Connection: close\r\n" .
+                "\r\n" .
+                '{"error":"The Discord Api is unhappy"}',
+            'https://discord.com/api/oauth2/token'
+        );
+
+        $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
+
+        $this->assertEquals($errorMessage, "Fatal Error asking Discord Server for user information, error in repsonse: {&quot;error&quot;:&quot;The Discord Api is unhappy&quot;}");
+        $this->assertFalse($result);
     }
 
     public function testFailsWithErrorIfUserDoesNotHaveRole()
