@@ -27,9 +27,9 @@ final class DiscordAuthTest extends MockeryTestCase
     private function discordAuthWithMockedHttp($addCorrectDiscordTokenResponse = true)
     {
         $mockHttpAdapter = new HTTP_Request2_Adapter_Mock();
-        $stubDiscordAdapter = new StubDiscordAdapter();
-        $stubDiscordAdapter->userRoles = array("AllowedRoleOne");
-        $stubDiscordAdapter->expectedAccessToken = "FakeAccessToken";
+        $stubDiscordRestApi = new StubDiscordRestApi();
+        $stubDiscordRestApi->userRoles = array("AllowedRoleOne");
+        $stubDiscordRestApi->expectedAccessToken = "FakeAccessToken";
 
 
         $stubAuthManager = AuthManager::singleton();
@@ -53,13 +53,13 @@ final class DiscordAuthTest extends MockeryTestCase
             10023
         );
 
-        return array(new DiscordAuth($mockHttpAdapter, $stubDiscordAdapter, new FixedCsrfTokenProvider(), $config), $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager);
+        return array(new DiscordAuth($mockHttpAdapter, $stubDiscordRestApi, new FixedCsrfTokenProvider(), $config), $mockHttpAdapter, $stubDiscordRestApi, $stubAuthManager);
     }
 
 
     public function testAntiCrsfTokenGetsAppendedAsStateVariableToUrlAndReturnedToBeStoredInSessionAsSecret(): void
     {
-        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
+        list($discordAuth, $mockHttpAdapter, $stubDiscordRestApi, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
         $key = '';
         $secret = '';
@@ -73,7 +73,7 @@ final class DiscordAuthTest extends MockeryTestCase
 
     public function testGivenKeyAndSecretGetUserLooksUpUserRolesAndAuthsFromDiscord()
     {
-        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
+        list($discordAuth, $mockHttpAdapter, $stubDiscordRestApi, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
         $errorMessage = false;
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
@@ -86,7 +86,7 @@ final class DiscordAuthTest extends MockeryTestCase
 
     public function testFailsWithErrorIfDiscordRespondsWithNonOkHttpStatus()
     {
-        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp(false);
+        list($discordAuth, $mockHttpAdapter, $stubDiscordRestApi, $stubAuthManager) = $this->discordAuthWithMockedHttp(false);
 
         $mockHttpAdapter->addResponse(
             "HTTP/1.1 500 Internal Server Error\r\n" .
@@ -102,7 +102,7 @@ final class DiscordAuthTest extends MockeryTestCase
 
     public function testFailsWithErrorIfDiscordRespondsErrorFieldSetInJson()
     {
-        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp(false);
+        list($discordAuth, $mockHttpAdapter, $stubDiscordRestApi, $stubAuthManager) = $this->discordAuthWithMockedHttp(false);
 
         $mockHttpAdapter->addResponse(
             "HTTP/1.1 200 OK\r\n" .
@@ -120,7 +120,7 @@ final class DiscordAuthTest extends MockeryTestCase
 
     public function testFailsWithErrorIfDiscordRespondsWithMalformedAccessToken()
     {
-        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp(false);
+        list($discordAuth, $mockHttpAdapter, $stubDiscordRestApi, $stubAuthManager) = $this->discordAuthWithMockedHttp(false);
 
         $mockHttpAdapter->addResponse(
             "HTTP/1.1 200 OK\r\n" .
@@ -138,10 +138,10 @@ final class DiscordAuthTest extends MockeryTestCase
 
     public function testFailsWithErrorIfUserDoesNotHaveRole()
     {
-        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
+        list($discordAuth, $mockHttpAdapter, $stubDiscordRestApi, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
         // Discord will return saying the user has no roles on the server
-        $stubDiscordAdapter->userRoles = array();
+        $stubDiscordRestApi->userRoles = array();
 
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
 
@@ -151,9 +151,9 @@ final class DiscordAuthTest extends MockeryTestCase
 
     public function testGetUserFailsWithErrorIfUserHasRolesButNoneAreValidToSeeTheWiki()
     {
-        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
+        list($discordAuth, $mockHttpAdapter, $stubDiscordRestApi, $stubAuthManager) = $this->discordAuthWithMockedHttp();
         // Invalid Wiki Roles
-        $stubDiscordAdapter->userRoles = array("Guest", "Spy");
+        $stubDiscordRestApi->userRoles = array("Guest", "Spy");
 
         $errorMessage = false;
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
@@ -164,7 +164,7 @@ final class DiscordAuthTest extends MockeryTestCase
 
     public function testErrorDisplayedWhenCsrfTokenSentBackToWikiDoesntMatchOneSavedInSession()
     {
-        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
+        list($discordAuth, $mockHttpAdapter, $stubDiscordRestApi, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
         // FixedCsrfToken is the one provided to getUser as the token stored in the users session, yet WRONGTOKEN is provided on the url back from discord hence this is a possible CSRF attack.
         $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', 'code=TestCode&state=WRONGTOKEN');
@@ -178,7 +178,7 @@ final class DiscordAuthTest extends MockeryTestCase
 
     public function testMaliciousCodeInRefererUrlIsEscapedInTheErrorMessageDisplayedToUser()
     {
-        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
+        list($discordAuth, $mockHttpAdapter, $stubDiscordRestApi, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
         $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', "malcious=<IMG SRC=javascript:alert('XSS')>&code=TestCode&state=BadTokenCausingErrorMessageToDisplayWithThisInHtml");
 
@@ -191,7 +191,7 @@ final class DiscordAuthTest extends MockeryTestCase
 
     public function testInvalidCharacterInCodeShowsError()
     {
-        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
+        list($discordAuth, $mockHttpAdapter, $stubDiscordRestApi, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
         $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', "code=TestCode\<&state=FixedCsrfToken");
 
@@ -204,7 +204,7 @@ final class DiscordAuthTest extends MockeryTestCase
 
     public function testInvalidCharacterInStateShowsError()
     {
-        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp();
+        list($discordAuth, $mockHttpAdapter, $stubDiscordRestApi, $stubAuthManager) = $this->discordAuthWithMockedHttp();
 
         $stubAuthManager->setAuthenticationSessionData('PluggableAuthLoginReturnToQuery', "code=TestCode&state=FixedCsrfToken^^");
 

@@ -3,14 +3,14 @@
 namespace AuthenticationProvider;
 use RestCord\DiscordClient;
 
-interface DiscordAdapter {
+interface DiscordRestApiInterface {
 
     public function getUser($userToken);
     public function getServerRolesForUser($user, $botToken, $guildId);
 
 }
 
-class RealDiscordAdapter implements DiscordAdapter {
+class DiscordRestApi implements DiscordRestApiInterface {
     public function getUser($userToken){
         $discord_user = new DiscordClient([
             'token' => $userToken,

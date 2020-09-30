@@ -122,7 +122,7 @@ After the update start the wiki back up, confirm that when you visit it you are 
 # Changes made to WSOAuth
 The following files have been added:
 * [DiscordAuth.php](https://github.com/GROON-Echoes-Dev-Team/WSOAuth/blob/master/src/AuthenticationProvider/DiscordAuth.php)
-* [RealDiscordAdapter.php](https://github.com/GROON-Echoes-Dev-Team/WSOAuth/blob/master/src/AuthenticationProvider/RealDiscordAdapter.php)
+* [DiscordRestApi.php](https://github.com/GROON-Echoes-Dev-Team/WSOAuth/blob/master/src/AuthenticationProvider/DiscordRestApi.php)
 
 No existing WSOAuth files have been changed, perhaps I have reformatted one or two however.
 

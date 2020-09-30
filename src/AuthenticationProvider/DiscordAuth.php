@@ -11,7 +11,7 @@ class DiscordAuth implements \AuthProvider
 {
 
     // Allow injecting these adapters so unit tests can stub out HTTP calls and randomness.
-    function __construct($httpAdapter = null, $discordAdapter = null, $csrfTokenProvider = null, $config = null)
+    function __construct($httpAdapter = null, $discordRestApi = null, $csrfTokenProvider = null, $config = null)
     {
         if (!$httpAdapter) {
             $this->httpAdapter = new \HTTP_Request2_Adapter_Socket();
@@ -19,10 +19,10 @@ class DiscordAuth implements \AuthProvider
             $this->httpAdapter = $httpAdapter;
         }
 
-        if (!$discordAdapter) {
-            $this->discordAdapter = new RealDiscordAdapter();
+        if (!$discordRestApi) {
+            $this->discordRestApi = new DiscordRestApi();
         } else {
-            $this->discordAdapter = $discordAdapter;
+            $this->discordRestApi = $discordRestApi;
         }
 
         if (!$csrfTokenProvider) {
@@ -95,7 +95,7 @@ class DiscordAuth implements \AuthProvider
             return false;
         }
 
-        $user = $this->discordAdapter->getUser($token);
+        $user = $this->discordRestApi->getUser($token);
 
         if ($this->userHasValidWikiRoleOnDiscordServer($user)) {
             $unique_username = $user->username  . $user->discriminator;
@@ -149,7 +149,7 @@ class DiscordAuth implements \AuthProvider
 
     private function userHasValidWikiRoleOnDiscordServer($user)
     {
-        $userRoles = $this->discordAdapter->getServerRolesForUser(
+        $userRoles = $this->discordRestApi->getServerRolesForUser(
             $user,
             $this->config->botToken,
             $this->config->guildId
