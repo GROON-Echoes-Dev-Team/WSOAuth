@@ -96,7 +96,7 @@ final class DiscordAuthTest extends MockeryTestCase
 
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
 
-        $this->assertEquals($errorMessage, "Error asking Discord Server for user information. The response from Discord was: 500 Internal Server Error");
+        $this->assertEquals($errorMessage, "Error! Please report this message to @thejanitor on Discord: Error asking Discord Server for user information. The response from Discord was: 500 Internal Server Error");
         $this->assertFalse($result);
     }
 
@@ -114,7 +114,25 @@ final class DiscordAuthTest extends MockeryTestCase
 
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
 
-        $this->assertEquals($errorMessage, "Fatal Error asking Discord Server for user information, error in repsonse: {&quot;error&quot;:&quot;The Discord Api is unhappy&quot;}");
+        $this->assertEquals($errorMessage, "Error! Please report this message to @thejanitor on Discord: Fatal Error asking Discord Server for user information, error in repsonse: {&quot;error&quot;:&quot;The Discord Api is unhappy&quot;}");
+        $this->assertFalse($result);
+    }
+
+    public function testFailsWithErrorIfDiscordRespondsWithMalformedAccessToken()
+    {
+        list($discordAuth, $mockHttpAdapter, $stubDiscordAdapter, $stubAuthManager) = $this->discordAuthWithMockedHttp(false);
+
+        $mockHttpAdapter->addResponse(
+            "HTTP/1.1 200 OK\r\n" .
+                "Connection: close\r\n" .
+                "\r\n" .
+                '{"access_token":"< wat sdsadds ^%£"}',
+            'https://discord.com/api/oauth2/token'
+        );
+
+        $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
+
+        $this->assertEquals($errorMessage, "Error! Please report this message to @thejanitor on Discord: Fatal Error asking Discord Server for user information, access_token malformed: {&quot;access_token&quot;:&quot;&lt; wat sdsadds ^%£&quot;}");
         $this->assertFalse($result);
     }
 
@@ -154,7 +172,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $errorMessage = false;
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
 
-        $this->assertEquals($errorMessage, "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error decoding returnToQuery. code=TestCode&amp;state=WRONGTOKEN");
+        $this->assertEquals($errorMessage, "Error! Please report this message to @thejanitor on Discord: Something went wrong with the redirect back from Discord - Error decoding returnToQuery. code=TestCode&amp;state=WRONGTOKEN");
         $this->assertFalse($result);
     }
 
@@ -167,7 +185,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $errorMessage = false;
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
 
-        $this->assertEquals($errorMessage, "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error decoding returnToQuery. malcious=&lt;IMG SRC=javascript:alert('XSS')&gt;&amp;code=TestCode&amp;state=BadTokenCausingErrorMessageToDisplayWithThisInHtml");
+        $this->assertEquals($errorMessage, "Error! Please report this message to @thejanitor on Discord: Something went wrong with the redirect back from Discord - Error decoding returnToQuery. malcious=&lt;IMG SRC=javascript:alert('XSS')&gt;&amp;code=TestCode&amp;state=BadTokenCausingErrorMessageToDisplayWithThisInHtml");
         $this->assertFalse($result);
     }
 
@@ -180,7 +198,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $errorMessage = false;
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
 
-        $this->assertEquals($errorMessage, "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. code=TestCode\&lt;&amp;state=FixedCsrfToken");
+        $this->assertEquals($errorMessage, "Error! Please report this message to @thejanitor on Discord: Something went wrong with the redirect back from Discord - Error Decoding returnToQuery. code=TestCode\&lt;&amp;state=FixedCsrfToken");
         $this->assertFalse($result);
     }
 
@@ -193,7 +211,7 @@ final class DiscordAuthTest extends MockeryTestCase
         $errorMessage = false;
         $result = $discordAuth->getUser("TestKey", "FixedCsrfToken", $errorMessage);
 
-        $this->assertEquals($errorMessage, "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. code=TestCode&amp;state=FixedCsrfToken^^");
+        $this->assertEquals($errorMessage, "Error! Please report this message to @thejanitor on Discord: Something went wrong with the redirect back from Discord - Error Decoding returnToQuery. code=TestCode&amp;state=FixedCsrfToken^^");
         $errorMessage = false;
     }
 }

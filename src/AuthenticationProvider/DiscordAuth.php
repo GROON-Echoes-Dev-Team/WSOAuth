@@ -117,15 +117,14 @@ class DiscordAuth implements \AuthProvider
         $returnToQuery = $authManager->getAuthenticationSessionData(
             RETURNTOQUERY_SESSION_KEY
         );
-        $returnToQuerySafeForHtmlDisplay = \htmlspecialchars($returnToQuery);
         if (!isset($returnToQuery)) {
-            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: returnToQuery Not Set. ";
+            $errorMessage = $this->constructSafeErrorMessage("Something went wrong with the redirect back from Discord - returnToQuery Not Set. ");
             return false;
         }
         parse_str($returnToQuery, $decoded_url);
 
         if (!$this->validReturnToUrl($decoded_url)) {
-            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error Decoding returnToQuery. " . $returnToQuerySafeForHtmlDisplay;
+            $errorMessage = $this->constructSafeErrorMessage("Something went wrong with the redirect back from Discord - Error Decoding returnToQuery. " . $returnToQuery);
             return false;
         }
 
@@ -135,7 +134,7 @@ class DiscordAuth implements \AuthProvider
         if (hash_equals($state, $secret)) {
             return $code;
         } else {
-            $errorMessage = "Something went wrong with the redirect back from Discord, please send this error message to @thejanitor in Discord: Error decoding returnToQuery. " . $returnToQuerySafeForHtmlDisplay;
+            $errorMessage = $this->constructSafeErrorMessage("Something went wrong with the redirect back from Discord - Error decoding returnToQuery. " . $returnToQuery);
             return false;
         }
     }
@@ -186,20 +185,30 @@ class DiscordAuth implements \AuthProvider
                 $body = $response->getBody();
                 $result_json = json_decode($body);
                 if (array_key_exists('error', $result_json)) {
-                    $errorMessage = 'Fatal Error asking Discord Server for user information, error in repsonse: ' . htmlspecialchars($body);
+                    $errorMessage = $this->constructSafeErrorMessage('Fatal Error asking Discord Server for user information, error in repsonse: ' . $body);
+                    return false;
+                }
+                if (!ctype_alnum($result_json->access_token)){
+                    $errorMessage = $this->constructSafeErrorMessage('Fatal Error asking Discord Server for user information, access_token malformed: ' . $body);
                     return false;
                 }
                 return $result_json->access_token;
             } else {
-                $errorMessage = 'Error asking Discord Server for user information. The response from Discord was: ' . $response->getStatus() . ' ' .
-                    $response->getReasonPhrase();
+                $errorMessage = $this->constructSafeErrorMessage('Error asking Discord Server for user information. The response from Discord was: ' . $response->getStatus() . ' ' .
+                    $response->getReasonPhrase());
                 return false;
             }
         } catch (\Exception $e) {
-            $errorMessage = 'Fatal Error asking Discord Server for user information: ' . $e->getMessage();
+            $errorMessage = $this->constructSafeErrorMessage('Fatal Error asking Discord Server for user information: ' . $e->getMessage());
             return false;
         }
     }
+
+    private function constructSafeErrorMessage($message){
+        // The message can contain unescaped user input, before displaying it back to the user in an html error message ensure we escape any malicious tags etc.
+        return htmlspecialchars("Error! Please report this message to @thejanitor on Discord: " . $message);
+    }
+
 
     /**
      * Gets called whenever a user is successfully authenticated, so extra attributes about the user can be saved.
