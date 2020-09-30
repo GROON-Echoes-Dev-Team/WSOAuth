@@ -5,6 +5,7 @@ This is a forked version of [WSOAuth](https://github.com/WikibaseSolutions/WSOAu
 * [How it Works](#how-it-works)  
 * [Setup Instructions](#setup-instructions)
 * [Changes Made to WSOAuth](#changes-made-to-wsoauth)  
+* [Running the Tests](#running-the-tests)  
 * [Original Readme](#original-readme)  
 
 # Overview
@@ -133,6 +134,13 @@ No existing WSOAuth files have been changed, perhaps I have reformatted one or t
 
 Additionally I threw away the existing unit tests as they were useless and added a small set of my own. These are currently hard to read and understand but will be refactored to something nicer soon.
 
+# Running the tests
+```
+git clone git@github.com:GROON-Echoes-Dev-Team/WSOAuth.git
+cd WSOAuth
+composer install
+./vendor/bin/phpunit tests
+```
 
 # Original Readme
 
