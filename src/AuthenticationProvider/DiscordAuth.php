@@ -195,8 +195,8 @@ class DiscordAuth implements \AuthProvider
                 }
                 return $result_json->access_token;
             } else {
-                $errorMessage = ('Error asking Discord Server for user information. The response from Discord was: ' . $response->getStatus() . ' ' .
-                    $response->getReasonPhrase() . " request was " . implode(",",$request->getHeaders()) . "/" . $request->getBody()); 
+                $errorMessage = $this->constructSafeErrorMessage('Error asking Discord Server for user information. The response from Discord was: ' . $response->getStatus() . ' ' .
+                    $response->getReasonPhrase());
                 return false;
             }
         } catch (\Exception $e) {
