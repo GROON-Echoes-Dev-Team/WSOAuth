@@ -98,13 +98,12 @@ class DiscordAuth implements \AuthProvider
 
         $user = $this->discordRestApi->getUser($token);
 
-        if ($this->userHasValidWikiRoleOnDiscordServer($user)) {
+        if ($user && $this->userHasValidWikiRoleOnDiscordServer($user)) {
             $unique_username = $user->username  . $user->discriminator;
 
             return [
                 'name' => $unique_username,
-                'realname' => $user->id,
-                'email' => $user->email
+                'realname' => $user->id
             ];
         } else {
             $errorMessage = "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again.";
@@ -125,8 +124,11 @@ class DiscordAuth implements \AuthProvider
         parse_str($returnToQuery, $decoded_url);
 
         if (!$this->validReturnToUrl($decoded_url)) {
-            $errorMessage = $this->constructSafeErrorMessage("Something went wrong with the redirect back from Discord - Error Decoding returnToQuery. " . $returnToQuery);
-            return false;
+            $decoded_url = array("code" => $_GET["code"], "state" => $_GET["state"]);
+            if(!$this->validReturnToUrl($decoded_url)){
+                $errorMessage = $this->constructSafeErrorMessage("Something went wrong with the redirect back from Discord - Error Decoding returnToQuery. returnToQuery=" . $returnToQuery. ", GET_CODE=" . $_GET['code'] . ", state=" . $_GET['state']);
+                return false;
+            }
         }
 
         $code = $decoded_url['code'];
@@ -156,9 +158,11 @@ class DiscordAuth implements \AuthProvider
             $this->config->guildId
         );
 
-        foreach ($userRoles as $userRole) {
-            if (\in_array($userRole, $this->config->allowedRoles)) {
-                return true;
+        if($userRoles){
+            foreach ($userRoles as $userRole) {
+                if (\in_array($userRole, $this->config->allowedRoles)) {
+                    return true;
+                }
             }
         }
         return false;

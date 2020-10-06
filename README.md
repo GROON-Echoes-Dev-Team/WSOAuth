@@ -91,9 +91,9 @@ $wgOAuthAuthProvider = 'discord';
 
 // Follow these steps to configure this variable:
 // - Go to your discord application and click on OAuth2. 
-// - Add a redirect uri of "https://wiki.goosefleet.cx/wiki/index.php?title=Special:PluggableAuthLogin" without quotes. This has to match the configuration parameter $wgoOAuthDiscordRedirectUri below.
+// - Add a redirect uri of "https://wiki.goosefleet.cx/index.php?title=Special:PluggableAuthLogin" without quotes. This has to match the configuration parameter $wgoOAuthDiscordRedirectUri below.
 // - Select the redirect url you added in the prior step.
-// - Select the identify and email scopes.
+// - Select only the identify scopes.
 // - Hit copy next to the url at the bottom and replace the word REPLACEME in the quotes below with the copied url:
 $wgOAuthDiscordOAuth2Url = "REPLACEME";
 
