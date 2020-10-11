@@ -100,9 +100,10 @@ class DiscordAuth implements \AuthProvider
 
         if ($user && $this->userHasValidWikiRoleOnDiscordServer($user)) {
             $unique_username = $user->username  . $user->discriminator;
+            $valid_unique_username = preg_replace("/[^A-Za-z0-9 ]/", '', $unique_username);
 
             return [
-                'name' => $unique_username,
+                'name' => $valid_unique_username,
                 'realname' => $user->id
             ];
         } else {
