@@ -107,7 +107,7 @@ class DiscordAuth implements \AuthProvider
                 'realname' => $user->id
             ];
         } else {
-            $errorMessage = "You do not have permissions to access this wiki. Please authenticate and on Goosefleet Discord and try again.";
+            $errorMessage = htmlspecialchars("You do not have permissions to access this wiki. Make sure you are using a discord account with permissions on Goosefleet Discord. You are attempting to use the discord account '{$user->username}' to login, perhaps this is an alt account without permissions? Otherwise please authenticate and on Goosefleet Discord and try again.");
             return false;
         }
     }
@@ -200,8 +200,9 @@ class DiscordAuth implements \AuthProvider
                 }
                 return $result_json->access_token;
             } else {
+                $body = $response->getBody();
                 $errorMessage = $this->constructSafeErrorMessage('Error asking Discord Server for user information. The response from Discord was: ' . $response->getStatus() . ' ' .
-                    $response->getReasonPhrase());
+                    $response->getReasonPhrase() . ' ' . $body);
                 return false;
             }
         } catch (\Exception $e) {
